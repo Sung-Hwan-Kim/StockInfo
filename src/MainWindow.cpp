@@ -2,10 +2,12 @@
 
 #include "IndexPanel.h"
 #include "SettingsDialog.h"
+#include "Skin.h"
 #include "StockListWidget.h"
 #include "Theme.h"
 
 #include <QAction>
+#include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
 #include <QDesktopServices>
@@ -83,8 +85,8 @@ void MainWindow::buildUi()
 
     grid->addWidget(m_kospiPanel, 0, 0);
     grid->addWidget(m_kosdaqPanel, 0, 1);
-    grid->addWidget(m_kospiList, 1, 0);
-    grid->addWidget(m_kosdaqList, 1, 1);
+    grid->addWidget(new ListFrame(m_kospiList, central), 1, 0);
+    grid->addWidget(new ListFrame(m_kosdaqList, central), 1, 1);
     // 좌우 같은 폭, 위(지수):아래(종목) = 1:3
     grid->setColumnStretch(0, 1);
     grid->setColumnStretch(1, 1);
@@ -124,6 +126,21 @@ void MainWindow::buildMenus()
     QAction *manage = setMenu->addAction(tr("종목 추가/관리..."), this, [this] { openSettings(true); });
     manage->setShortcut(QKeySequence(QStringLiteral("Ctrl+N")));
     setMenu->addSeparator();
+
+    QMenu *skinMenu = setMenu->addMenu(tr("스킨"));
+    auto *skinGroup = new QActionGroup(this);
+    skinGroup->setExclusive(true);
+    m_darkAction = skinMenu->addAction(Skin::displayName(Skin::Mode::Dark));
+    m_lightAction = skinMenu->addAction(Skin::displayName(Skin::Mode::Light));
+    for (QAction *a : {m_darkAction, m_lightAction}) {
+        a->setCheckable(true);
+        skinGroup->addAction(a);
+    }
+    m_darkAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+D")));
+    m_lightAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+L")));
+    connect(m_darkAction, &QAction::triggered, this, [this] { setSkin(Skin::toString(Skin::Mode::Dark)); });
+    connect(m_lightAction, &QAction::triggered, this, [this] { setSkin(Skin::toString(Skin::Mode::Light)); });
+
     m_onTopAction = setMenu->addAction(tr("항상 위에 표시"));
     m_onTopAction->setCheckable(true);
     m_onTopAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+T")));
@@ -148,9 +165,15 @@ void MainWindow::buildMenus()
 
 void MainWindow::applyRuntimeSettings()
 {
+    Skin::apply(Skin::fromString(m_settings.skin));
+    m_darkAction->setChecked(Skin::current() == Skin::Mode::Dark);
+    m_lightAction->setChecked(Skin::current() == Skin::Mode::Light);
+
     m_kospiList->setListFontSize(m_settings.listFontSize);
     m_kosdaqList->setListFontSize(m_settings.listFontSize);
     rebuildLists();
+    m_kospiList->recolor();
+    m_kosdaqList->recolor();
 
     {
         const QSignalBlocker block(m_onTopAction);
@@ -350,6 +373,16 @@ void MainWindow::openInBrowser(const QString &code, bool isIndex)
         ? QStringLiteral("https://finance.naver.com/sise/sise_index.naver?code=%1").arg(code)
         : QStringLiteral("https://finance.naver.com/item/main.naver?code=%1").arg(code);
     QDesktopServices::openUrl(QUrl(url));
+}
+
+void MainWindow::setSkin(const QString &skin)
+{
+    m_settings.skin = skin;
+    Skin::apply(Skin::fromString(skin));
+    m_kospiList->recolor();
+    m_kosdaqList->recolor();
+    captureGeometry();
+    m_settings.save();
 }
 
 void MainWindow::setAlwaysOnTop(bool on)

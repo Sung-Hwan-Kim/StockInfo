@@ -1,14 +1,27 @@
 #include "MainWindow.h"
+#include "Skin.h"
 
 #include <QApplication>
 #include <QFont>
+#include <QIcon>
+#include <QStyleFactory>
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("StockInfo"));
     QApplication::setOrganizationName(QStringLiteral("StockInfo"));
-    QApplication::setApplicationVersion(QStringLiteral("1.0.0"));
+    QApplication::setApplicationVersion(QStringLiteral(STOCKINFO_VERSION));
+
+    // 스킨이 OS 테마와 상관없이 똑같이 보이도록 Fusion 스타일 사용
+    QApplication::setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
+    Skin::installWindowFrameFilter();
+
+    // 창/작업 표시줄 아이콘
+    QIcon icon;
+    for (int size : {16, 24, 32, 48, 64, 128, 256})
+        icon.addFile(QStringLiteral(":/resources/icons/icon_%1.png").arg(size), QSize(size, size));
+    QApplication::setWindowIcon(icon);
 
     // 플랫폼별 한글 글꼴 우선 지정
     QFont f = QApplication::font();

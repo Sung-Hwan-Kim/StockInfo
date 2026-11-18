@@ -22,6 +22,8 @@ public:
     int listFontSize = 11;
     // 항상 위에 표시
     bool alwaysOnTop = false;
+    // 스킨: "Dark"(기본) / "Light"
+    QString skin = QStringLiteral("Dark");
 
     // 창 위치/크기 (클라이언트 영역 기준), 비어 있으면 기본 위치
     QRect windowRect;

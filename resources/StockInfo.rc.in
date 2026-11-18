@@ -1,0 +1,32 @@
+#pragma code_page(65001)
+#include <winver.h>
+
+// 실행 파일 아이콘 (탐색기, 작업 표시줄 고정 등에 표시)
+IDI_ICON1 ICON "@STOCKINFO_ICO@"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+ PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041204b0"
+        BEGIN
+            VALUE "FileDescription", "코스피 · 코스닥 주식 정보"
+            VALUE "FileVersion", "@PROJECT_VERSION@"
+            VALUE "InternalName", "StockInfo"
+            VALUE "OriginalFilename", "StockInfo.exe"
+            VALUE "ProductName", "StockInfo"
+            VALUE "ProductVersion", "@PROJECT_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x412, 1200
+    END
+END

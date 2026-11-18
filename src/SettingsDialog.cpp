@@ -1,6 +1,9 @@
 #include "SettingsDialog.h"
 
+#include "Skin.h"
+
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -56,6 +59,12 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, StockService *servic
     m_fontSize->setSuffix(tr(" pt"));
     m_fontSize->setValue(settings.listFontSize);
     form->addRow(tr("종목 목록 글꼴 크기:"), m_fontSize);
+
+    m_skin = new QComboBox(general);
+    for (Skin::Mode mode : {Skin::Mode::Dark, Skin::Mode::Light})
+        m_skin->addItem(Skin::displayName(mode), Skin::toString(mode));
+    m_skin->setCurrentIndex(qMax(0, m_skin->findData(settings.skin)));
+    form->addRow(tr("스킨:"), m_skin);
 
     m_onTop = new QCheckBox(tr("항상 위에 표시"), general);
     m_onTop->setChecked(settings.alwaysOnTop);
@@ -291,6 +300,7 @@ void SettingsDialog::applyTo(AppSettings &settings) const
     settings.refreshSeconds = m_refresh->value();
     settings.listFontSize = m_fontSize->value();
     settings.alwaysOnTop = m_onTop->isChecked();
+    settings.skin = m_skin->currentData().toString();
     settings.stocks.clear();
     for (int i = 0; i < m_stocks->count(); ++i) {
         const QListWidgetItem *li = m_stocks->item(i);

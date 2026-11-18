@@ -6,6 +6,7 @@
 #include <QDialog>
 
 class QCheckBox;
+class QComboBox;
 class QKeyEvent;
 class QLabel;
 class QLineEdit;
@@ -47,6 +48,7 @@ private:
     QSpinBox *m_refresh;
     QSpinBox *m_fontSize;
     QCheckBox *m_onTop;
+    QComboBox *m_skin;
     QLineEdit *m_searchEdit;
     QPushButton *m_searchBtn;
     QListWidget *m_results;

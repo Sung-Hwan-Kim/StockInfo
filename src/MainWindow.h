@@ -44,6 +44,7 @@ private:
     void removeStock(const QString &code);
     void openInBrowser(const QString &code, bool isIndex);
     void setAlwaysOnTop(bool on);
+    void setSkin(const QString &skin);
     void captureGeometry();
     void scheduleGeometrySave();
 
@@ -57,6 +58,8 @@ private:
 
     QLabel *m_statusLabel = nullptr;
     QAction *m_onTopAction = nullptr;
+    QAction *m_darkAction = nullptr;
+    QAction *m_lightAction = nullptr;
     QPointer<SettingsDialog> m_settingsDialog;
 
     QTimer m_refreshTimer;   // 시세 갱신 주기

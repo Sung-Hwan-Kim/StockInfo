@@ -64,6 +64,11 @@ void AppSettings::load()
     refreshSeconds = qBound(kMinRefresh, s.value(QStringLiteral("RefreshSeconds"), 5).toInt(), kMaxRefresh);
     listFontSize = qBound(8, s.value(QStringLiteral("ListFontSize"), 11).toInt(), 32);
     alwaysOnTop = s.value(QStringLiteral("AlwaysOnTop"), false).toBool();
+    skin = s.value(QStringLiteral("Skin"), QStringLiteral("Dark")).toString();
+    if (skin.compare(QLatin1String("Light"), Qt::CaseInsensitive) == 0)
+        skin = QStringLiteral("Light");
+    else
+        skin = QStringLiteral("Dark");
     s.endGroup();
 
     s.beginGroup(QStringLiteral("Window"));
@@ -107,6 +112,7 @@ void AppSettings::save() const
     s.setValue(QStringLiteral("RefreshSeconds"), refreshSeconds);
     s.setValue(QStringLiteral("ListFontSize"), listFontSize);
     s.setValue(QStringLiteral("AlwaysOnTop"), alwaysOnTop);
+    s.setValue(QStringLiteral("Skin"), skin);
     s.endGroup();
 
     s.beginGroup(QStringLiteral("Window"));

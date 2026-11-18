@@ -6,10 +6,13 @@
 #include <QHeaderView>
 #include <QMenu>
 #include <QPainter>
+#include <QPainterPath>
 #include <QStyledItemDelegate>
+#include <QVBoxLayout>
 
 namespace {
 constexpr int kCodeRole = Qt::UserRole + 1;
+constexpr int kDirRole = Qt::UserRole + 2;
 
 // 일부 스타일(Qt 6.7 windows11 등)이 ForegroundRole 색을 무시하므로 글자를 직접 그린다
 class QuoteDelegate : public QStyledItemDelegate
@@ -94,9 +97,8 @@ StockListWidget::StockListWidget(QWidget *parent)
     }
     hdr->setMinimumSectionSize(40);
 
-    // 그림의 회색 리스트박스 테두리
-    setStyleSheet(QStringLiteral(
-        "QTreeWidget#stockList { border: 2px solid #8a8a8a; border-radius: 4px; }"));
+    // 테두리는 ListFrame이 그린다 (스타일시트는 앱 팔레트/스킨 전환과 충돌하므로 사용하지 않음)
+    setFrameShape(QFrame::NoFrame);
 
     connect(this, &QTreeWidget::itemDoubleClicked, this, [this](QTreeWidgetItem *item, int) {
         if (item)
@@ -139,6 +141,7 @@ void StockListWidget::updateQuote(const Quote &q)
     if (!item)
         return;
 
+    item->setData(ColName, kDirRole, q.direction);
     const QColor color = Theme::directionColor(palette(), q.direction);
     const QString sign = q.rate > 0 ? QStringLiteral("+") : QString();
 
@@ -164,6 +167,50 @@ void StockListWidget::updateQuote(const Quote &q)
         item->setToolTip(c, tip);
 
     updateColumnVisibility();
+}
+
+// ── ListFrame ──
+
+ListFrame::ListFrame(QWidget *content, QWidget *parent)
+    : QWidget(parent)
+{
+    auto *lay = new QVBoxLayout(this);
+    lay->setContentsMargins(3, 3, 3, 3);
+    lay->setSpacing(0);
+    lay->addWidget(content);
+}
+
+void ListFrame::paintEvent(QPaintEvent *)
+{
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    const QRectF r = QRectF(rect()).adjusted(1, 1, -1, -1);
+    QPainterPath path;
+    path.addRoundedRect(r, 4, 4);
+    p.fillPath(path, palette().color(QPalette::Base));
+    p.setPen(QPen(QColor(0x8a, 0x8a, 0x8a), 2)); // 그림의 회색 리스트박스 테두리
+    p.drawPath(path);
+}
+
+// ── StockListWidget ──
+
+void StockListWidget::recolor()
+{
+    for (QTreeWidgetItem *item : std::as_const(m_items)) {
+        const QVariant dir = item->data(ColName, kDirRole);
+        if (!dir.isValid())
+            continue;
+        const QColor color = Theme::directionColor(palette(), dir.toInt());
+        for (int c = ColPrice; c <= ColRate; ++c)
+            item->setForeground(c, color);
+    }
+}
+
+void StockListWidget::changeEvent(QEvent *e)
+{
+    QTreeWidget::changeEvent(e);
+    if (e->type() == QEvent::PaletteChange)
+        recolor();
 }
 
 void StockListWidget::setListFontSize(int pt)
