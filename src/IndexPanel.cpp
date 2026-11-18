@@ -1,7 +1,9 @@
 #include "IndexPanel.h"
 #include "Theme.h"
 
+#include <QContextMenuEvent>
 #include <QFontMetrics>
+#include <QMenu>
 #include <QPainter>
 #include <QPainterPath>
 
@@ -41,7 +43,7 @@ IndexPanel::IndexPanel(const QString &code, const QString &title, QWidget *paren
     , m_title(title)
 {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    setToolTip(tr("더블클릭하면 네이버 금융에서 %1 지수를 엽니다").arg(title));
+    setToolTip(tr("더블클릭하면 %1 지수 상세 창(차트)을 엽니다.\n오른쪽 클릭: 네이버 금융에서 보기").arg(title));
 }
 
 void IndexPanel::setQuote(const Quote &q)
@@ -62,7 +64,18 @@ void IndexPanel::setStale(bool stale)
 
 void IndexPanel::mouseDoubleClickEvent(QMouseEvent *)
 {
-    emit doubleClicked(m_code);
+    emit detailRequested(m_code);
+}
+
+void IndexPanel::contextMenuEvent(QContextMenuEvent *e)
+{
+    QMenu menu(this);
+    QAction *detail = menu.addAction(tr("상세 보기 (차트)"), this, [this] { emit detailRequested(m_code); });
+    QFont bold = detail->font();
+    bold.setBold(true);
+    detail->setFont(bold);
+    menu.addAction(tr("네이버 금융에서 보기"), this, [this] { emit openRequested(m_code); });
+    menu.exec(e->globalPos());
 }
 
 void IndexPanel::paintEvent(QPaintEvent *)

@@ -120,8 +120,11 @@ void MainWindow::buildUi()
     m_versionLabel = versionLabel;
     statusBar()->addPermanentWidget(versionLabel);
 
-    for (IndexPanel *p : {m_kospiPanel, m_kosdaqPanel})
-        connect(p, &IndexPanel::doubleClicked, this, [this](const QString &code) { openInBrowser(code, true); });
+    // 지수 패널: 더블클릭 → 지수 상세 창, 오른쪽 클릭 → 메뉴
+    for (IndexPanel *p : {m_kospiPanel, m_kosdaqPanel}) {
+        connect(p, &IndexPanel::detailRequested, this, &MainWindow::openDetail);
+        connect(p, &IndexPanel::openRequested, this, [this](const QString &code) { openInBrowser(code, true); });
+    }
 
     for (StockListWidget *list : {m_kospiList, m_kosdaqList}) {
         connect(list, &StockListWidget::detailRequested, this, &MainWindow::openDetail);
@@ -354,6 +357,10 @@ void MainWindow::onIndexes(const QList<Quote> &quotes)
             m_kosdaqQuote = q;
             m_kosdaqPanel->setQuote(q);
         }
+        // 지수 상세 창도 실시간으로 갱신
+        m_lastQuotes.insert(q.code, q);
+        if (StockDetailDialog *d = m_details.value(q.code))
+            d->updateQuote(q);
     }
     updateWindowTitle();
 }
@@ -410,8 +417,13 @@ void MainWindow::openDetail(const QString &code)
         return;
     }
 
+    const bool isIndex = (code == QLatin1String("KOSPI") || code == QLatin1String("KOSDAQ"));
     QString name = code;
-    QString market = QStringLiteral("KOSPI");
+    QString market = isIndex ? code : QStringLiteral("KOSPI");
+    if (code == QLatin1String("KOSPI"))
+        name = tr("코스피");
+    else if (code == QLatin1String("KOSDAQ"))
+        name = tr("코스닥");
     for (const StockEntry &e : std::as_const(m_settings.stocks)) {
         if (e.code == code) {
             name = e.name.isEmpty() ? code : e.name;
@@ -420,7 +432,7 @@ void MainWindow::openDetail(const QString &code)
         }
     }
 
-    auto *dlg = new StockDetailDialog(m_service, code, name, market, this);
+    auto *dlg = new StockDetailDialog(m_service, code, name, market, isIndex, this);
     m_details.insert(code, dlg);
     connect(dlg, &QObject::destroyed, this, [this, code] { m_details.remove(code); });
     if (m_lastQuotes.contains(code))

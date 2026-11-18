@@ -437,6 +437,7 @@ void ChartWidget::drawPane(QPainter &p, const Pane &pane, int first, int last) c
     const QFontMetrics fm(small);
 
     QVector<double> ticks;
+    int priceAxisDecimals = m_decimals; // 눈금 간격이 1 이상이면 소수점 없이 (9,000.00 → 9,000)
     if (pane.kind == PaneKind::Rsi) {
         ticks = {30.0, 50.0, 70.0};
     } else if (pane.kind == PaneKind::Stoch) {
@@ -448,6 +449,8 @@ void ChartWidget::drawPane(QPainter &p, const Pane &pane, int first, int last) c
         const double step = niceStep(pane.hi - pane.lo, target);
         for (double t = qCeil(pane.lo / step) * step; t <= pane.hi; t += step)
             ticks.append(t);
+        if (step >= 1.0)
+            priceAxisDecimals = 0;
     }
     for (double t : std::as_const(ticks)) {
         const qreal y = yOf(pane, t);
@@ -460,7 +463,7 @@ void ChartWidget::drawPane(QPainter &p, const Pane &pane, int first, int last) c
 
         QString label;
         switch (pane.kind) {
-        case PaneKind::Price: label = fmtPrice(t); break;
+        case PaneKind::Price: label = krLocale().toString(t, 'f', priceAxisDecimals); break;
         case PaneKind::Volume: label = fmtVolume(t); break;
         case PaneKind::Macd:
             // 값의 폭이 크면 정수로 (0.00 대신 0)
@@ -705,7 +708,7 @@ void ChartWidget::drawLegend(QPainter &p, const Pane &pane, int index) const
                        {tr("저 ") + fmtPrice(c.low), text},
                        {tr("종 ") + fmtPrice(c.close), dc},
                        {(rate > 0 ? QStringLiteral("+") : QString()) + QString::number(rate, 'f', 2) + QLatin1Char('%'), dc},
-                       {tr("거래량 ") + krLocale().toString(c.volume, 'f', 0), dim}});
+                       {m_volumeLabel + QLatin1Char(' ') + krLocale().toString(c.volume, 'f', 0), dim}});
         QVector<Part> row2;
         if (m_showMA) {
             for (int k = 0; k < 4; ++k)
@@ -719,7 +722,7 @@ void ChartWidget::drawLegend(QPainter &p, const Pane &pane, int index) const
     }
     case PaneKind::Volume: {
         const int dir = candleDirection(index);
-        drawRow(row1, {{tr("거래량"), dim},
+        drawRow(row1, {{m_volumeLabel, dim},
                        {krLocale().toString(c.volume, 'f', 0), dir == 0 ? text : Theme::directionColor(pal, dir)}});
         break;
     }

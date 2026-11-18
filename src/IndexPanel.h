@@ -20,11 +20,13 @@ public:
     QSize minimumSizeHint() const override { return {160, 130}; }
 
 signals:
-    void doubleClicked(const QString &code);
+    void detailRequested(const QString &code); // 더블클릭 / [상세 보기]
+    void openRequested(const QString &code);   // [네이버 금융에서 보기]
 
 protected:
     void paintEvent(QPaintEvent *) override;
     void mouseDoubleClickEvent(QMouseEvent *) override;
+    void contextMenuEvent(QContextMenuEvent *e) override;
 
 private:
     QString m_code;

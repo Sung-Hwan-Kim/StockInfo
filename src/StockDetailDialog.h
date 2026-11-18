@@ -16,8 +16,9 @@ class StockDetailDialog : public QDialog
 {
     Q_OBJECT
 public:
+    // isIndex: 코스피/코스닥 지수 (code = "KOSPI" / "KOSDAQ")
     StockDetailDialog(StockService *service, const QString &code, const QString &name,
-                      const QString &market, QWidget *parent = nullptr);
+                      const QString &market, bool isIndex, QWidget *parent = nullptr);
 
     QString code() const { return m_code; }
     void updateQuote(const Quote &q);
@@ -35,11 +36,13 @@ private:
     void restoreState();
     void saveState() const;
     QString fmtPrice(double v) const;
+    double chartVolume(const Quote &q) const;
 
     StockService *m_service;
     QString m_code;
     QString m_name;
     QString m_market;
+    bool m_isIndex = false;
 
     QLabel *m_title = nullptr;
     QLabel *m_status = nullptr;

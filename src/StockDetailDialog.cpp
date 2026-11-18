@@ -118,16 +118,19 @@ ChartWidget::Timeframe toTimeframe(const QString &tf)
 } // namespace
 
 StockDetailDialog::StockDetailDialog(StockService *service, const QString &code, const QString &name,
-                                     const QString &market, QWidget *parent)
+                                     const QString &market, bool isIndex, QWidget *parent)
     : QDialog(parent)
     , m_service(service)
     , m_code(code)
     , m_name(name.isEmpty() ? code : name)
     , m_market(market)
+    , m_isIndex(isIndex)
+    , m_decimals(isIndex ? 2 : 0)
 {
     setWindowFlags(Qt::Window | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
     setAttribute(Qt::WA_DeleteOnClose);
-    setWindowTitle(tr("%1 (%2) - 종목 상세").arg(m_name, m_code));
+    setWindowTitle(m_isIndex ? tr("%1 (%2) - 지수 상세").arg(m_name, m_code)
+                             : tr("%1 (%2) - 종목 상세").arg(m_name, m_code));
 
     // ── 머리: 종목명 / 현재가 ──
     m_title = new QLabel(this);
@@ -197,15 +200,20 @@ StockDetailDialog::StockDetailDialog(StockService *service, const QString &code,
     options->addStretch();
     auto *naver = new QPushButton(tr("네이버 금융"), this);
     naver->setAutoDefault(false);
-    naver->setToolTip(tr("네이버 금융에서 이 종목 보기"));
+    naver->setToolTip(m_isIndex ? tr("네이버 금융에서 이 지수 보기") : tr("네이버 금융에서 이 종목 보기"));
     connect(naver, &QPushButton::clicked, this, [this] {
-        QDesktopServices::openUrl(QUrl(QStringLiteral("https://finance.naver.com/item/main.naver?code=%1").arg(m_code)));
+        const QString url = m_isIndex
+            ? QStringLiteral("https://finance.naver.com/sise/sise_index.naver?code=%1").arg(m_code)
+            : QStringLiteral("https://finance.naver.com/item/main.naver?code=%1").arg(m_code);
+        QDesktopServices::openUrl(QUrl(url));
     });
     options->addWidget(naver);
 
     // ── 차트 ──
     m_chart = new ChartWidget(this);
     m_chart->setMessage(tr("차트 불러오는 중…"));
+    if (m_isIndex)
+        m_chart->setVolumeLabel(tr("거래량(천주)")); // 지수 차트 거래량은 천 주 단위
 
     auto *hint = new QLabel(tr("마우스 휠: 확대/축소 · 끌기: 이동 · 더블클릭: 처음 보기"), this);
     QPalette hp = hint->palette();
@@ -243,7 +251,7 @@ void StockDetailDialog::updateQuote(const Quote &q)
 {
     m_quote = q;
     m_hasQuote = true;
-    if (!q.name.isEmpty() && q.name != m_name) {
+    if (!m_isIndex && !q.name.isEmpty() && q.name != m_name) {
         m_name = q.name;
         setWindowTitle(tr("%1 (%2) - 종목 상세").arg(m_name, m_code));
     }
@@ -252,8 +260,14 @@ void StockDetailDialog::updateQuote(const Quote &q)
     // 오늘 봉을 실시간 시세로 갱신
     if (q.hasHighLow && q.priceValue > 0) {
         const QDate today = q.tradedAt.isValid() ? q.tradedAt.date() : QDate::currentDate();
-        m_chart->applyLive(today, q.openValue, q.highValue, q.lowValue, q.priceValue, q.volumeValue);
+        m_chart->applyLive(today, q.openValue, q.highValue, q.lowValue, q.priceValue, chartVolume(q));
     }
+}
+
+// 실시간 거래량을 차트 단위로 (지수 차트는 천 주 단위, 실시간 시세는 주 단위)
+double StockDetailDialog::chartVolume(const Quote &q) const
+{
+    return m_isIndex ? q.volumeValue / 1000.0 : q.volumeValue;
 }
 
 QString StockDetailDialog::fmtPrice(double v) const
@@ -266,7 +280,8 @@ void StockDetailDialog::renderHeader()
     const QPalette pal = palette();
     const QColor text = pal.color(QPalette::WindowText);
     const QColor dim = solidDim(pal);
-    const QString marketName = m_market == QLatin1String("KOSDAQ") ? tr("코스닥") : tr("코스피");
+    const QString marketName = m_isIndex ? tr("지수")
+                             : (m_market == QLatin1String("KOSDAQ") ? tr("코스닥") : tr("코스피"));
 
     QFont tf = font();
     m_title->setText(QStringLiteral("<span style=\"font-size:%1pt; font-weight:700;\">%2</span>"
@@ -332,10 +347,12 @@ void StockDetailDialog::renderHeader()
               + colored(fmtPrice(lo52), Theme::directionColor(pal, -1), true) + colored(QStringLiteral(" (") + loDate.toString(QStringLiteral("yy.MM.dd")) + QStringLiteral(")"), dim)
         : colored(tr("불러오는 중…"), dim);
 
+    // 지수는 시가총액 대신 빈 칸 (열 맞춤 유지)
+    const QString capCell = m_isIndex ? QStringLiteral("<td></td><td></td>") : cell(tr("시가총액"), cap);
     m_stats->setText(QStringLiteral("<table cellspacing=\"0\" cellpadding=\"2\">"
                                     "<tr>%1%2%3%4</tr><tr>%5%6%7%8</tr></table>")
                          .arg(cell(tr("시가"), open), cell(tr("고가"), high), cell(tr("저가"), low), cell(tr("전일 종가"), prev),
-                              cell(tr("거래량"), volume), cell(tr("거래대금"), value), cell(tr("시가총액"), cap),
+                              cell(tr("거래량"), volume), cell(tr("거래대금"), value), capCell,
                               cell(tr("52주 최고/최저"), w52)));
 }
 
@@ -369,7 +386,7 @@ void StockDetailDialog::onChartLoaded(const QString &symbol, const QString &time
     if (m_hasQuote && m_quote.hasHighLow && m_quote.priceValue > 0) {
         const QDate today = m_quote.tradedAt.isValid() ? m_quote.tradedAt.date() : QDate::currentDate();
         m_chart->applyLive(today, m_quote.openValue, m_quote.highValue, m_quote.lowValue,
-                           m_quote.priceValue, m_quote.volumeValue);
+                           m_quote.priceValue, chartVolume(m_quote));
     }
 }
 

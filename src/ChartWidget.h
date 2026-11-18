@@ -17,6 +17,7 @@ public:
 
     void setCandles(const QVector<Candle> &candles, Timeframe tf, int decimals);
     void setMessage(const QString &message); // "불러오는 중…" 등 (빈 문자열이면 숨김)
+    void setVolumeLabel(const QString &label) { m_volumeLabel = label; update(); } // 예: "거래량(천주)"
 
     // 실시간 시세로 마지막 봉 갱신 (오늘 날짜, 시/고/저/종가, 누적 거래량)
     void applyLive(const QDate &date, double open, double high, double low, double close, double volume);
@@ -82,6 +83,7 @@ private:
     Timeframe m_tf = Timeframe::Day;
     int m_decimals = 0;
     QString m_message;
+    QString m_volumeLabel = QStringLiteral("거래량");
 
     // 지표 값
     QVector<double> m_ma[4];
