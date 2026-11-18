@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 
+#include "AboutDialog.h"
 #include "IndexPanel.h"
 #include "SettingsDialog.h"
 #include "Skin.h"
@@ -82,6 +83,8 @@ void MainWindow::buildUi()
     m_kosdaqPanel = new IndexPanel(QStringLiteral("KOSDAQ"), tr("코스닥"), central);
     m_kospiList = new StockListWidget(central);
     m_kosdaqList = new StockListWidget(central);
+    m_kospiList->setPeer(m_kosdaqList);
+    m_kosdaqList->setPeer(m_kospiList);
 
     grid->addWidget(m_kospiPanel, 0, 0);
     grid->addWidget(m_kosdaqPanel, 0, 1);
@@ -99,6 +102,12 @@ void MainWindow::buildUi()
     m_statusLabel = new QLabel(this);
     statusBar()->addWidget(m_statusLabel, 1);
     statusBar()->addPermanentWidget(new QLabel(tr("데이터: 네이버 금융"), this));
+    auto *versionLabel = new QLabel(QStringLiteral("v%1").arg(AboutDialog::version()), this);
+    versionLabel->setToolTip(tr("버전 정보 보기 (도움말 → 버전 정보)"));
+    versionLabel->setCursor(Qt::PointingHandCursor);
+    versionLabel->installEventFilter(this);
+    m_versionLabel = versionLabel;
+    statusBar()->addPermanentWidget(versionLabel);
 
     for (IndexPanel *p : {m_kospiPanel, m_kosdaqPanel})
         connect(p, &IndexPanel::doubleClicked, this, [this](const QString &code) { openInBrowser(code, true); });
@@ -152,14 +161,11 @@ void MainWindow::buildMenus()
     });
 
     QMenu *helpMenu = menuBar()->addMenu(tr("도움말(&H)"));
-    QAction *about = helpMenu->addAction(tr("정보"), this, [this] {
-        QMessageBox::about(this, tr("주식 정보"),
-                           tr("<b>코스피 · 코스닥 주식 정보</b><br><br>"
-                              "시세 출처: 네이버 금융 (비공식 공개 API)<br>"
-                              "표시되는 정보는 참고용이며 실제 시세와 차이가 있을 수 있습니다.<br><br>"
-                              "설정 파일: %1<br>Qt %2")
-                               .arg(AppSettings::iniPath().toHtmlEscaped(), QString::fromLatin1(qVersion())));
+    helpMenu->addAction(tr("홈페이지 (GitHub)"), this, [] {
+        QDesktopServices::openUrl(QUrl(AboutDialog::homepage()));
     });
+    helpMenu->addSeparator();
+    QAction *about = helpMenu->addAction(tr("버전 정보"), this, &MainWindow::showAbout);
     about->setMenuRole(QAction::AboutRole);
 }
 
@@ -373,6 +379,24 @@ void MainWindow::openInBrowser(const QString &code, bool isIndex)
         ? QStringLiteral("https://finance.naver.com/sise/sise_index.naver?code=%1").arg(code)
         : QStringLiteral("https://finance.naver.com/item/main.naver?code=%1").arg(code);
     QDesktopServices::openUrl(QUrl(url));
+}
+
+void MainWindow::showAbout()
+{
+    // 창 모달로 표시 (exec()의 중첩 이벤트 루프 없이)
+    auto *dlg = new AboutDialog(this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->open();
+}
+
+bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
+{
+    // 상태 표시줄의 버전 글자를 클릭하면 버전 정보 창
+    if (obj == m_versionLabel && ev->type() == QEvent::MouseButtonRelease) {
+        showAbout();
+        return true;
+    }
+    return QMainWindow::eventFilter(obj, ev);
 }
 
 void MainWindow::setSkin(const QString &skin)

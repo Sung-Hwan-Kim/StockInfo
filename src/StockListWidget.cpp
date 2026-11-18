@@ -11,10 +11,23 @@
 #include <QVBoxLayout>
 
 namespace {
-constexpr int kCodeRole = Qt::UserRole + 1;
-constexpr int kDirRole = Qt::UserRole + 2;
 
-// 일부 스타일(Qt 6.7 windows11 등)이 ForegroundRole 색을 무시하므로 글자를 직접 그린다
+constexpr int kCodeRole = Qt::UserRole + 1;
+constexpr int kSubRole = Qt::UserRole + 10;    // 아래 줄 글자
+constexpr int kDirRole = Qt::UserRole + 11;    // 위 줄 색 (1 상승 / -1 하락 / 0 보합, 없으면 기본색)
+constexpr int kSubDirRole = Qt::UserRole + 12; // 아래 줄 색 (없으면 흐린 글자색)
+constexpr int kSubCompactRole = Qt::UserRole + 13; // 폭이 좁을 때 쓰는 짧은 아래 줄 (현재가: 등락률만)
+const char kCompactProperty[] = "compactMode";
+
+constexpr qreal kSubScale = 0.84; // 아래 줄 글자 크기 비율
+
+QString signedPercent(double v)
+{
+    return (v > 0 ? QStringLiteral("+") : QString()) + QString::number(v, 'f', 2) + QLatin1Char('%');
+}
+
+// 두 줄짜리 셀을 직접 그리는 델리게이트.
+// (Qt 6.7 windows11 등 일부 스타일은 ForegroundRole 색을 무시하므로 글자는 모두 직접 그린다)
 class QuoteDelegate : public QStyledItemDelegate
 {
 public:
@@ -24,7 +37,8 @@ public:
     {
         QStyleOptionViewItem o(option);
         initStyleOption(&o, index);
-        const QString text = o.text;
+        const QString top = o.text;
+        const QString sub = subText(o, index);
         o.text.clear();
 
         const QWidget *w = o.widget;
@@ -32,34 +46,72 @@ public:
         style->drawControl(QStyle::CE_ItemViewItem, &o, p, w); // 배경/선택 표시만
 
         const bool selected = o.state & QStyle::State_Selected;
-        QColor color = o.palette.color(selected ? QPalette::HighlightedText : QPalette::Text);
-        const QVariant fg = index.data(Qt::ForegroundRole);
-        if (!selected && fg.isValid())
-            color = fg.value<QBrush>().color();
+        const QColor topColor = colorFor(o, index.data(kDirRole), selected, false);
+        const QColor subColor = colorFor(o, index.data(kSubDirRole), selected, true);
+
+        const QFont topFont = o.font;
+        const QFont subFont = subFontOf(o.font);
+        const QFontMetrics fmTop(topFont), fmSub(subFont);
 
         const int margin = textMargin(o);
         const QRect r = o.rect.adjusted(margin, 0, -margin, 0);
+        const int total = fmTop.height() + fmSub.height();
+        const int y = r.top() + (r.height() - total) / 2;
+        const QRect topRect(r.left(), y, r.width(), fmTop.height());
+        const QRect subRect(r.left(), y + fmTop.height(), r.width(), fmSub.height());
+        const int hAlign = int(o.displayAlignment & Qt::AlignHorizontal_Mask);
+
         p->save();
-        p->setFont(o.font);
-        p->setPen(color);
-        const QString shown = QFontMetrics(o.font).elidedText(text, Qt::ElideRight, r.width());
-        p->drawText(r, int(o.displayAlignment) | Qt::AlignVCenter, shown);
+        p->setFont(topFont);
+        p->setPen(topColor);
+        p->drawText(topRect, hAlign | Qt::AlignVCenter, fmTop.elidedText(top, Qt::ElideRight, r.width()));
+        if (!sub.isEmpty()) {
+            p->setFont(subFont);
+            p->setPen(subColor);
+            p->drawText(subRect, hAlign | Qt::AlignVCenter, fmSub.elidedText(sub, Qt::ElideRight, r.width()));
+        }
         p->restore();
     }
 
-    // 직접 그리는 글자 폭에 맞춘 크기 (열 자동 너비가 잘리지 않도록)
+    // 두 줄 중 넓은 쪽에 맞춘 크기 (열 자동 너비가 잘리지 않도록)
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
     {
         QStyleOptionViewItem o(option);
         initStyleOption(&o, index);
-        const QSize base = QStyledItemDelegate::sizeHint(option, index);
-        const QFontMetrics fm(o.font);
-        const int w = fm.horizontalAdvance(o.text) + 2 * textMargin(o) + 2;
-        const int h = qMax(base.height(), fm.height() + 6);
-        return {qMax(base.width(), w), h};
+        const QFontMetrics fmTop(o.font);
+        const QFontMetrics fmSub(subFontOf(o.font));
+        const QString sub = subText(o, index);
+        const int w = qMax(fmTop.horizontalAdvance(o.text), fmSub.horizontalAdvance(sub)) + 2 * textMargin(o) + 2;
+        const int h = fmTop.height() + fmSub.height() + 8;
+        return {w, h};
     }
 
 private:
+    static QString subText(const QStyleOptionViewItem &o, const QModelIndex &index)
+    {
+        const bool compact = o.widget && o.widget->property(kCompactProperty).toBool();
+        const QVariant shortText = index.data(kSubCompactRole);
+        if (compact && shortText.isValid())
+            return shortText.toString();
+        return index.data(kSubRole).toString();
+    }
+
+    static QFont subFontOf(QFont f)
+    {
+        f.setBold(false);
+        f.setPointSizeF(f.pointSizeF() * kSubScale);
+        return f;
+    }
+
+    static QColor colorFor(const QStyleOptionViewItem &o, const QVariant &dir, bool selected, bool sub)
+    {
+        if (selected)
+            return o.palette.color(QPalette::HighlightedText);
+        if (dir.isValid())
+            return Theme::directionColor(o.palette, dir.toInt());
+        return sub ? Theme::dimText(o.palette) : o.palette.color(QPalette::Text);
+    }
+
     static int textMargin(const QStyleOptionViewItem &o)
     {
         const QWidget *w = o.widget;
@@ -67,14 +119,40 @@ private:
         return style->pixelMetric(QStyle::PM_FocusFrameHMargin, &o, w) + 2;
     }
 };
+
 } // namespace
+
+// ── ListFrame ──
+
+ListFrame::ListFrame(QWidget *content, QWidget *parent)
+    : QWidget(parent)
+{
+    auto *lay = new QVBoxLayout(this);
+    lay->setContentsMargins(3, 3, 3, 3);
+    lay->setSpacing(0);
+    lay->addWidget(content);
+}
+
+void ListFrame::paintEvent(QPaintEvent *)
+{
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    const QRectF r = QRectF(rect()).adjusted(1, 1, -1, -1);
+    QPainterPath path;
+    path.addRoundedRect(r, 4, 4);
+    p.fillPath(path, palette().color(QPalette::Base));
+    p.setPen(QPen(QColor(0x8a, 0x8a, 0x8a), 2)); // 그림의 회색 리스트박스 테두리
+    p.drawPath(path);
+}
+
+// ── StockListWidget ──
 
 StockListWidget::StockListWidget(QWidget *parent)
     : QTreeWidget(parent)
 {
     setObjectName(QStringLiteral("stockList"));
     setColumnCount(ColCount);
-    setHeaderLabels({tr("종목명"), tr("현재가"), tr("대비"), tr("등락률"), tr("거래량")});
+    setHeaderLabels({tr("종목명"), tr("현재가"), tr("고가"), tr("저가"), tr("거래량")});
     setRootIsDecorated(false);
     setUniformRowHeights(true);
     setAlternatingRowColors(true);
@@ -84,6 +162,7 @@ StockListWidget::StockListWidget(QWidget *parent)
     setSortingEnabled(false);
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     setTextElideMode(Qt::ElideRight);
     setItemDelegate(new QuoteDelegate(this));
 
@@ -122,10 +201,14 @@ void StockListWidget::setStocks(const QList<StockEntry> &stocks)
             item = new QTreeWidgetItem;
             item->setData(ColName, kCodeRole, e.code);
             item->setText(ColName, e.name.isEmpty() ? e.code : e.name);
+            item->setData(ColName, kSubRole, e.code);
             for (int c = ColPrice; c < ColCount; ++c) {
                 item->setTextAlignment(c, Qt::AlignRight | Qt::AlignVCenter);
                 item->setText(c, QStringLiteral("-"));
             }
+            QFont bold = font();
+            bold.setBold(true);
+            item->setFont(ColPrice, bold);
             item->setToolTip(ColName, e.code);
         }
         addTopLevelItem(item);
@@ -141,27 +224,48 @@ void StockListWidget::updateQuote(const Quote &q)
     if (!item)
         return;
 
-    item->setData(ColName, kDirRole, q.direction);
-    const QColor color = Theme::directionColor(palette(), q.direction);
-    const QString sign = q.rate > 0 ? QStringLiteral("+") : QString();
-
+    // 종목명 / 종목코드
     item->setText(ColName, q.name.isEmpty() ? q.code : q.name);
+    item->setData(ColName, kSubRole, q.code);
+
+    // 현재가 / 대비 + 등락률
     item->setText(ColPrice, q.price);
-    item->setText(ColChange, Theme::arrowText(q.direction, q.change));
-    item->setText(ColRate, sign + QString::number(q.rate, 'f', 2) + QLatin1Char('%'));
+    item->setData(ColPrice, kDirRole, q.direction);
+    item->setData(ColPrice, kSubRole,
+                  Theme::arrowText(q.direction, q.change) + QStringLiteral("  ") + signedPercent(q.rate));
+    item->setData(ColPrice, kSubDirRole, q.direction);
+    item->setData(ColPrice, kSubCompactRole, signedPercent(q.rate));
+
+    // 고가 / 저가 (전일 종가 대비 %)
+    if (q.hasHighLow) {
+        item->setText(ColHigh, q.high);
+        item->setData(ColHigh, kDirRole, q.highDirection);
+        item->setData(ColHigh, kSubRole, signedPercent(q.highRate));
+        item->setData(ColHigh, kSubDirRole, q.highDirection);
+
+        item->setText(ColLow, q.low);
+        item->setData(ColLow, kDirRole, q.lowDirection);
+        item->setData(ColLow, kSubRole, signedPercent(q.lowRate));
+        item->setData(ColLow, kSubDirRole, q.lowDirection);
+    } else {
+        for (int c : {ColHigh, ColLow}) {
+            item->setText(c, QStringLiteral("-"));
+            item->setData(c, kDirRole, QVariant());
+            item->setData(c, kSubRole, QString());
+            item->setData(c, kSubDirRole, QVariant());
+        }
+    }
+
+    // 거래량 / 거래대금
     item->setText(ColVolume, q.volume);
+    item->setData(ColVolume, kSubRole, q.tradeValue);
 
-    QFont bold = item->font(ColPrice);
-    bold.setBold(true);
-    item->setFont(ColPrice, bold);
-    for (int c = ColPrice; c <= ColRate; ++c)
-        item->setForeground(c, color);
-
-    const QString tip = tr("%1 (%2)\n현재가 %3  %4 %5 (%6%7%)\n시가 %8  고가 %9  저가 %10\n거래량 %11  거래대금 %12\n%13 %14")
-                            .arg(q.name, q.code, q.price, Theme::arrow(q.direction), q.change, sign,
-                                 QString::number(q.rate, 'f', 2), q.open, q.high)
-                            .arg(q.low, q.volume, q.tradeValue,
-                                 StockService::marketStatusText(q.marketStatus),
+    const QString highText = q.hasHighLow ? QStringLiteral("%1 (%2)").arg(q.high, signedPercent(q.highRate)) : q.high;
+    const QString lowText = q.hasHighLow ? QStringLiteral("%1 (%2)").arg(q.low, signedPercent(q.lowRate)) : q.low;
+    const QString tip = tr("%1 (%2)\n현재가 %3  %4 (%5)\n시가 %6\n고가 %7\n저가 %8\n거래량 %9  거래대금 %10\n%11 %12")
+                            .arg(q.name, q.code, q.price, Theme::arrowText(q.direction, q.change),
+                                 signedPercent(q.rate), q.open, highText, lowText, q.volume)
+                            .arg(q.tradeValue, StockService::marketStatusText(q.marketStatus),
                                  q.tradedAt.toString(QStringLiteral("MM/dd HH:mm:ss")));
     for (int c = 0; c < ColCount; ++c)
         item->setToolTip(c, tip);
@@ -169,48 +273,9 @@ void StockListWidget::updateQuote(const Quote &q)
     updateColumnVisibility();
 }
 
-// ── ListFrame ──
-
-ListFrame::ListFrame(QWidget *content, QWidget *parent)
-    : QWidget(parent)
-{
-    auto *lay = new QVBoxLayout(this);
-    lay->setContentsMargins(3, 3, 3, 3);
-    lay->setSpacing(0);
-    lay->addWidget(content);
-}
-
-void ListFrame::paintEvent(QPaintEvent *)
-{
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing);
-    const QRectF r = QRectF(rect()).adjusted(1, 1, -1, -1);
-    QPainterPath path;
-    path.addRoundedRect(r, 4, 4);
-    p.fillPath(path, palette().color(QPalette::Base));
-    p.setPen(QPen(QColor(0x8a, 0x8a, 0x8a), 2)); // 그림의 회색 리스트박스 테두리
-    p.drawPath(path);
-}
-
-// ── StockListWidget ──
-
 void StockListWidget::recolor()
 {
-    for (QTreeWidgetItem *item : std::as_const(m_items)) {
-        const QVariant dir = item->data(ColName, kDirRole);
-        if (!dir.isValid())
-            continue;
-        const QColor color = Theme::directionColor(palette(), dir.toInt());
-        for (int c = ColPrice; c <= ColRate; ++c)
-            item->setForeground(c, color);
-    }
-}
-
-void StockListWidget::changeEvent(QEvent *e)
-{
-    QTreeWidget::changeEvent(e);
-    if (e->type() == QEvent::PaletteChange)
-        recolor();
+    viewport()->update();
 }
 
 void StockListWidget::setListFontSize(int pt)
@@ -219,12 +284,11 @@ void StockListWidget::setListFontSize(int pt)
     f.setPointSize(pt);
     setFont(f);
     header()->setFont(f);
-    // 기존 항목의 굵은 글꼴도 새 크기로
-    for (QTreeWidgetItem *item : std::as_const(m_items)) {
-        QFont b = f;
-        b.setBold(true);
-        item->setFont(ColPrice, b);
-    }
+    // 현재가(굵게) 글꼴도 새 크기로
+    QFont bold = f;
+    bold.setBold(true);
+    for (QTreeWidgetItem *item : std::as_const(m_items))
+        item->setFont(ColPrice, bold);
     updateColumnVisibility();
 }
 
@@ -234,25 +298,78 @@ void StockListWidget::resizeEvent(QResizeEvent *e)
     updateColumnVisibility();
 }
 
-// 폭이 좁으면 거래량 → 대비 순서로 열을 숨겨서
-// 종목명/현재가/등락률은 항상 읽을 수 있게 한다
+int StockListWidget::measureColumn(int col, bool compactSub) const
+{
+    QFont topFont = font();
+    if (col == ColPrice)
+        topFont.setBold(true);
+    QFont subFont = font();
+    subFont.setPointSizeF(subFont.pointSizeF() * kSubScale);
+    const QFontMetrics fmTop(topFont), fmSub(subFont);
+    const int pad = 2 * (style()->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, this) + 2) + 2;
+
+    int w = header()->sectionSizeHint(col);
+    for (const QTreeWidgetItem *item : std::as_const(m_items)) {
+        QString sub = item->data(col, kSubRole).toString();
+        const QVariant shortText = item->data(col, kSubCompactRole);
+        if (compactSub && shortText.isValid())
+            sub = shortText.toString();
+        w = qMax(w, qMax(fmTop.horizontalAdvance(item->text(col)), fmSub.horizontalAdvance(sub)) + pad);
+    }
+    return w;
+}
+
+// 폭에 따라 표시 방법을 조절해서 종목명/현재가/등락률/고가/저가는 항상 보이게 한다
+//   넓음: 거래량 열 표시, 현재가 아래 줄 = "▲ 대비  등락률%"
+//   보통: 거래량 열 숨김
+//   좁음: 현재가 아래 줄을 "등락률%"만 표시 (대비 금액은 툴팁)
+StockListWidget::Fit StockListWidget::computeFit() const
+{
+    const QFontMetrics fm(font());
+    const int avail = viewport()->width();
+    const int nameMin = fm.horizontalAdvance(QStringLiteral("가나다라마")) + 12; // 한글 5글자
+    const int nameWant = qMin(measureColumn(ColName, false), nameMin);
+    const int highLow = measureColumn(ColHigh, false) + measureColumn(ColLow, false);
+    const int fullCore = nameWant + measureColumn(ColPrice, false) + highLow;
+
+    Fit fit;
+    fit.full = avail >= fullCore;
+    fit.volume = fit.full && avail >= fullCore + measureColumn(ColVolume, false);
+    return fit;
+}
+
 void StockListWidget::updateColumnVisibility()
 {
-    auto colWidth = [this](int c) { return qMax(sizeHintForColumn(c), header()->sectionSizeHint(c)); };
+    // 두 목록 중 하나라도 좁으면 둘 다 같은 방식으로 표시 (코스피/코스닥 모양 통일)
+    const Fit own = computeFit();
+    Fit fit = own;
+    if (m_peer) {
+        const Fit other = m_peer->computeFit();
+        fit.full = own.full && other.full;
+        fit.volume = own.volume && other.volume;
+    }
+    const bool compact = !fit.full;
+    const bool showVolume = fit.volume;
 
-    const QFontMetrics fm(font());
-    // 종목명은 한글 5글자 정도는 보이도록 확보 (더 긴 이름은 … 으로 줄이고 툴팁에 전체 표시)
-    const int nameWant = qMin(colWidth(ColName), fm.horizontalAdvance(QStringLiteral("가나다라마")) + 12);
-    const int core = nameWant + colWidth(ColPrice) + colWidth(ColRate);
-    const int avail = viewport()->width();
-
-    const bool showChange = avail >= core + colWidth(ColChange);
-    const bool showVolume = showChange && avail >= core + colWidth(ColChange) + colWidth(ColVolume);
-
-    if (isColumnHidden(ColChange) == showChange)
-        setColumnHidden(ColChange, !showChange);
-    if (isColumnHidden(ColVolume) == showVolume)
+    bool changed = false;
+    if (property(kCompactProperty).toBool() != compact) {
+        setProperty(kCompactProperty, compact);
+        changed = true;
+    }
+    if (isColumnHidden(ColVolume) == showVolume) {
         setColumnHidden(ColVolume, !showVolume);
+        changed = true;
+    }
+    if (changed) {
+        doItemsLayout(); // 열 자동 너비 다시 계산
+        viewport()->update();
+    }
+
+    if (m_peer && !m_syncing) {
+        m_peer->m_syncing = true;
+        m_peer->updateColumnVisibility();
+        m_peer->m_syncing = false;
+    }
 }
 
 void StockListWidget::contextMenuEvent(QContextMenuEvent *e)

@@ -23,6 +23,7 @@ public:
     void restoreAndShow();
 
 protected:
+    bool eventFilter(QObject *obj, QEvent *ev) override;
     void closeEvent(QCloseEvent *e) override;
     void moveEvent(QMoveEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
@@ -45,6 +46,7 @@ private:
     void openInBrowser(const QString &code, bool isIndex);
     void setAlwaysOnTop(bool on);
     void setSkin(const QString &skin);
+    void showAbout();
     void captureGeometry();
     void scheduleGeometrySave();
 
@@ -57,6 +59,7 @@ private:
     StockListWidget *m_kosdaqList = nullptr;
 
     QLabel *m_statusLabel = nullptr;
+    QLabel *m_versionLabel = nullptr;
     QAction *m_onTopAction = nullptr;
     QAction *m_darkAction = nullptr;
     QAction *m_lightAction = nullptr;

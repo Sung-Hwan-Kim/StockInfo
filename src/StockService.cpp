@@ -28,6 +28,26 @@ QString str(const QJsonObject &o, const char *key)
     return {};
 }
 
+double num(const QJsonObject &o, const char *rawKey, const char *fmtKey)
+{
+    QString s = str(o, rawKey);
+    if (s.isEmpty())
+        s = str(o, fmtKey);
+    s.remove(QLatin1Char(','));
+    bool ok = false;
+    const double v = s.toDouble(&ok);
+    return ok ? v : 0.0;
+}
+
+int sign(double v)
+{
+    if (v > 1e-9)
+        return 1;
+    if (v < -1e-9)
+        return -1;
+    return 0;
+}
+
 QString stripSign(QString s)
 {
     s = s.trimmed();
@@ -132,6 +152,20 @@ QList<Quote> StockService::parseQuotes(const QByteArray &json)
             rateStr = str(o, "fluctuationsRatio");
         const double absRate = qAbs(stripSign(rateStr).remove(QLatin1Char(',')).toDouble());
         q.rate = q.direction * absRate;
+
+        // 전일 종가 대비 고가/저가 등락률
+        const double price = num(o, "closePriceRaw", "closePrice");
+        const double change = qAbs(num(o, "compareToPreviousClosePriceRaw", "compareToPreviousClosePrice"));
+        q.prevClose = price - q.direction * change;
+        q.highValue = num(o, "highPriceRaw", "highPrice");
+        q.lowValue = num(o, "lowPriceRaw", "lowPrice");
+        q.hasHighLow = q.prevClose > 0 && q.highValue > 0 && q.lowValue > 0;
+        if (q.hasHighLow) {
+            q.highRate = (q.highValue - q.prevClose) / q.prevClose * 100.0;
+            q.lowRate = (q.lowValue - q.prevClose) / q.prevClose * 100.0;
+            q.highDirection = sign(q.highValue - q.prevClose);
+            q.lowDirection = sign(q.lowValue - q.prevClose);
+        }
 
         if (!q.code.isEmpty())
             out.append(q);

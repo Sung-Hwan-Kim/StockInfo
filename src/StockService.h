@@ -27,6 +27,16 @@ struct Quote
     QString tradeValue;   // 누적 거래대금 (표시용)
     QString marketStatus; // OPEN / CLOSE ...
     QDateTime tradedAt;
+
+    // 계산용 수치 (전일 종가 대비 고가/저가 등락률)
+    double prevClose = 0.0;   // 전일 종가 = 현재가 - 대비
+    double highValue = 0.0;
+    double lowValue = 0.0;
+    bool hasHighLow = false;  // 장 시작 전 등으로 고가/저가가 없으면 false
+    double highRate = 0.0;    // (고가 - 전일종가) / 전일종가 * 100
+    double lowRate = 0.0;     // (저가 - 전일종가) / 전일종가 * 100
+    int highDirection = 0;    // 고가가 전일 종가보다 높으면 1, 낮으면 -1
+    int lowDirection = 0;
 };
 
 // 검색 결과 한 건
