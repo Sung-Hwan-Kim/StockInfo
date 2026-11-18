@@ -6,6 +6,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QRegularExpression>
 #include <QUrl>
 #include <QUrlQuery>
 
@@ -14,6 +15,7 @@ namespace {
 const char kIndexUrl[] = "https://polling.finance.naver.com/api/realtime/domestic/index/";
 const char kStockUrl[] = "https://polling.finance.naver.com/api/realtime/domestic/stock/";
 const char kSearchUrl[] = "https://ac.stock.naver.com/ac";
+const char kChartUrl[] = "https://fchart.stock.naver.com/sise.nhn";
 
 constexpr int kCodesPerRequest = 30;
 constexpr int kTimeoutMs = 10000;
@@ -159,6 +161,10 @@ QList<Quote> StockService::parseQuotes(const QByteArray &json)
         q.prevClose = price - q.direction * change;
         q.highValue = num(o, "highPriceRaw", "highPrice");
         q.lowValue = num(o, "lowPriceRaw", "lowPrice");
+        q.priceValue = price;
+        q.openValue = num(o, "openPriceRaw", "openPrice");
+        q.volumeValue = num(o, "accumulatedTradingVolumeRaw", "accumulatedTradingVolume");
+        q.marketCap = num(o, "marketValueFullRaw", "marketValueFull");
         q.hasHighLow = q.prevClose > 0 && q.highValue > 0 && q.lowValue > 0;
         if (q.hasHighLow) {
             q.highRate = (q.highValue - q.prevClose) / q.prevClose * 100.0;
@@ -210,6 +216,60 @@ void StockService::search(const QString &query)
                 items.append(it);
         }
         emit searchFinished(query, items);
+    });
+}
+
+void StockService::fetchChart(const QString &symbol, const QString &timeframe, int count)
+{
+    QUrl url(QString::fromLatin1(kChartUrl));
+    QUrlQuery uq;
+    uq.addQueryItem(QStringLiteral("symbol"), symbol);
+    uq.addQueryItem(QStringLiteral("timeframe"), timeframe);
+    uq.addQueryItem(QStringLiteral("count"), QString::number(count));
+    uq.addQueryItem(QStringLiteral("requestType"), QStringLiteral("0"));
+    url.setQuery(uq);
+
+    QNetworkReply *reply = get(url.toString(QUrl::FullyEncoded));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, symbol, timeframe] {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            emit chartFailed(symbol, timeframe, tr("차트 조회 실패: %1").arg(reply->errorString()));
+            return;
+        }
+        // 응답은 EUC-KR XML이지만 필요한 값(날짜|시가|고가|저가|종가|거래량)은 모두 ASCII
+        const QString body = QString::fromLatin1(reply->readAll());
+        int decimals = 0;
+        static const QRegularExpression precisionRe(QStringLiteral("precision=\"(\\d+)\""));
+        const QRegularExpressionMatch pm = precisionRe.match(body);
+        if (pm.hasMatch())
+            decimals = pm.captured(1).toInt();
+
+        QVector<Candle> candles;
+        static const QRegularExpression itemRe(QStringLiteral("data=\"([^\"]+)\""));
+        auto it = itemRe.globalMatch(body);
+        while (it.hasNext()) {
+            const QStringList f = it.next().captured(1).split(QLatin1Char('|'));
+            if (f.size() < 6)
+                continue;
+            Candle c;
+            c.date = QDate::fromString(f[0], QStringLiteral("yyyyMMdd"));
+            c.open = f[1].toDouble();
+            c.high = f[2].toDouble();
+            c.low = f[3].toDouble();
+            c.close = f[4].toDouble();
+            c.volume = f[5].toDouble();
+            if (c.date.isValid() && c.close > 0) {
+                // 거래가 없던 날(시/고/저가 0)은 종가로 채움
+                if (c.open <= 0) c.open = c.close;
+                if (c.high <= 0) c.high = qMax(c.open, c.close);
+                if (c.low <= 0) c.low = qMin(c.open, c.close);
+                candles.append(c);
+            }
+        }
+        if (candles.isEmpty())
+            emit chartFailed(symbol, timeframe, tr("차트 데이터가 없습니다."));
+        else
+            emit chartLoaded(symbol, timeframe, candles, decimals);
     });
 }
 

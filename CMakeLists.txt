@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(StockInfo VERSION 1.3.0 LANGUAGES CXX)
+project(StockInfo VERSION 1.4.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,6 +19,14 @@ qt_add_executable(StockInfo
     src/Skin.cpp
     src/AboutDialog.h
     src/AboutDialog.cpp
+    src/RefreshButton.h
+    src/RefreshButton.cpp
+    src/ChartData.h
+    src/ChartData.cpp
+    src/ChartWidget.h
+    src/ChartWidget.cpp
+    src/StockDetailDialog.h
+    src/StockDetailDialog.cpp
     src/IndexPanel.h
     src/IndexPanel.cpp
     src/StockListWidget.h

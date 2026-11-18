@@ -2,7 +2,9 @@
 
 #include "AboutDialog.h"
 #include "IndexPanel.h"
+#include "RefreshButton.h"
 #include "SettingsDialog.h"
+#include "StockDetailDialog.h"
 #include "Skin.h"
 #include "StockListWidget.h"
 #include "Theme.h"
@@ -122,6 +124,7 @@ void MainWindow::buildUi()
         connect(p, &IndexPanel::doubleClicked, this, [this](const QString &code) { openInBrowser(code, true); });
 
     for (StockListWidget *list : {m_kospiList, m_kosdaqList}) {
+        connect(list, &StockListWidget::detailRequested, this, &MainWindow::openDetail);
         connect(list, &StockListWidget::openRequested, this, [this](const QString &code) { openInBrowser(code, false); });
         connect(list, &StockListWidget::removeRequested, this, &MainWindow::removeStock);
         connect(list, &StockListWidget::manageRequested, this, [this] { openSettings(true); });
@@ -132,8 +135,13 @@ void MainWindow::buildMenus()
 {
     // 메뉴 막대와 트레이 메뉴에서 같이 쓰는 동작
     m_refreshAction = new QAction(tr("지금 새로고침"), this);
+    m_refreshAction->setIconText(tr("실시간 갱신")); // 메뉴 막대 버튼에 표시되는 글자
     m_refreshAction->setShortcut(QKeySequence::Refresh);
-    connect(m_refreshAction, &QAction::triggered, this, &MainWindow::refreshNow);
+    m_refreshAction->setToolTip(tr("누르면 지금 바로 코스피·코스닥과 종목 시세를 다시 받아옵니다. (F5)"));
+    connect(m_refreshAction, &QAction::triggered, this, [this] {
+        m_manualRefresh = true; // 직접 누른 갱신은 끝나면 버튼을 반짝여서 알려준다
+        refreshNow();
+    });
 
     m_quitAction = new QAction(tr("종료"), this);
     m_quitAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Q")));
@@ -182,6 +190,11 @@ void MainWindow::buildMenus()
         captureGeometry();
         m_settings.save();
     });
+
+    // 메뉴 막대 오른쪽 끝: [⟳ 실시간 갱신] 버튼 (누를 때마다 즉시 갱신)
+    m_refreshButton = new RefreshButton(menuBar());
+    m_refreshButton->setDefaultAction(m_refreshAction);
+    menuBar()->setCornerWidget(m_refreshButton, Qt::TopRightCorner);
 
     QMenu *helpMenu = menuBar()->addMenu(tr("도움말(&H)"));
     helpMenu->addAction(tr("홈페이지 (GitHub)"), this, [] {
@@ -319,6 +332,7 @@ void MainWindow::refreshNow()
         return; // 이전 요청이 아직 진행 중
 
     m_cycleErrors.clear();
+    m_refreshButton->setBusy(true); // 받는 동안 ⟳ 회전
     m_service->fetchIndexes();
 
     QStringList codes;
@@ -376,7 +390,44 @@ void MainWindow::onStocks(const QList<Quote> &quotes)
             m_kospiList->updateQuote(q);
         else if (m_kosdaqList->hasCode(q.code))
             m_kosdaqList->updateQuote(q);
+
+        // 열려 있는 상세 창도 실시간으로 갱신
+        m_lastQuotes.insert(q.code, q);
+        if (StockDetailDialog *d = m_details.value(q.code))
+            d->updateQuote(q);
     }
+}
+
+void MainWindow::openDetail(const QString &code)
+{
+    // 이미 열려 있으면 앞으로
+    if (StockDetailDialog *d = m_details.value(code)) {
+        if (d->isMinimized())
+            d->setWindowState(d->windowState() & ~Qt::WindowMinimized);
+        d->show();
+        d->raise();
+        d->activateWindow();
+        return;
+    }
+
+    QString name = code;
+    QString market = QStringLiteral("KOSPI");
+    for (const StockEntry &e : std::as_const(m_settings.stocks)) {
+        if (e.code == code) {
+            name = e.name.isEmpty() ? code : e.name;
+            market = e.market;
+            break;
+        }
+    }
+
+    auto *dlg = new StockDetailDialog(m_service, code, name, market, this);
+    m_details.insert(code, dlg);
+    connect(dlg, &QObject::destroyed, this, [this, code] { m_details.remove(code); });
+    if (m_lastQuotes.contains(code))
+        dlg->updateQuote(m_lastQuotes.value(code));
+    dlg->show();
+    dlg->raise();
+    dlg->activateWindow();
 }
 
 void MainWindow::onQuoteFailed(const QString &message, bool isIndex)
@@ -390,8 +441,13 @@ void MainWindow::onQuoteFailed(const QString &message, bool isIndex)
 
 void MainWindow::onCycleFinished()
 {
-    if (m_cycleErrors.isEmpty())
+    const bool ok = m_cycleErrors.isEmpty();
+    if (ok)
         m_lastUpdate = QTime::currentTime().toString(QStringLiteral("HH:mm:ss"));
+    m_refreshButton->setBusy(false);
+    if (m_manualRefresh || !ok)
+        m_refreshButton->flash(ok); // 직접 누른 갱신 완료(파랑) / 실패(빨강) 표시
+    m_manualRefresh = false;
     updateStatus();
 }
 

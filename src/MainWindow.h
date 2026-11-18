@@ -3,12 +3,15 @@
 #include "AppSettings.h"
 #include "StockService.h"
 
+#include <QHash>
 #include <QMainWindow>
 #include <QPointer>
 #include <QTimer>
 
 class IndexPanel;
+class RefreshButton;
 class SettingsDialog;
+class StockDetailDialog;
 class QMenu;
 class QSystemTrayIcon;
 class StockListWidget;
@@ -53,6 +56,7 @@ private:
     void openSettings(bool focusSearch);
     void removeStock(const QString &code);
     void openInBrowser(const QString &code, bool isIndex);
+    void openDetail(const QString &code);
     void setAlwaysOnTop(bool on);
     void setSkin(const QString &skin);
     void showAbout();
@@ -73,8 +77,11 @@ private:
     QAction *m_darkAction = nullptr;
     QAction *m_lightAction = nullptr;
     QPointer<SettingsDialog> m_settingsDialog;
+    QHash<QString, QPointer<StockDetailDialog>> m_details; // 열려 있는 종목 상세 창
+    QHash<QString, Quote> m_lastQuotes;                    // 종목별 마지막 시세
 
     QAction *m_refreshAction = nullptr;
+    RefreshButton *m_refreshButton = nullptr; // 메뉴 막대 오른쪽의 [⟳ 실시간 갱신] 버튼
     QAction *m_prefsAction = nullptr;
     QAction *m_manageAction = nullptr;
     QAction *m_quitAction = nullptr;
@@ -82,6 +89,7 @@ private:
     QSystemTrayIcon *m_tray = nullptr;
     QMenu *m_trayMenu = nullptr;
     QAction *m_showHideAction = nullptr;
+    bool m_manualRefresh = false; // 버튼/F5로 직접 누른 갱신인지
     bool m_quitting = false; // true면 닫기 버튼도 트레이로 숨기지 않고 종료
 
     QTimer m_refreshTimer;   // 시세 갱신 주기

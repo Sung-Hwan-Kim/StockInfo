@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ChartData.h"
+
 #include <QDateTime>
 #include <QList>
 #include <QObject>
@@ -37,6 +39,12 @@ struct Quote
     double lowRate = 0.0;     // (저가 - 전일종가) / 전일종가 * 100
     int highDirection = 0;    // 고가가 전일 종가보다 높으면 1, 낮으면 -1
     int lowDirection = 0;
+
+    // 상세 창/차트용 수치
+    double priceValue = 0.0;
+    double openValue = 0.0;
+    double volumeValue = 0.0;
+    double marketCap = 0.0;   // 시가총액 (원), 종목만
 };
 
 // 검색 결과 한 건
@@ -60,6 +68,8 @@ public:
     void fetchStocks(const QStringList &codes);
     // 종목명/코드 검색
     void search(const QString &query);
+    // 차트(봉) 데이터 요청. timeframe: "day" / "week" / "month", symbol: 종목코드 또는 KOSPI/KOSDAQ
+    void fetchChart(const QString &symbol, const QString &timeframe, int count);
 
     // 진행 중인 시세 요청 수
     int pendingQuoteRequests() const { return m_pendingQuotes; }
@@ -72,6 +82,9 @@ signals:
     void searchFinished(const QString &query, const QList<SearchItem> &items);
     void quoteFailed(const QString &message, bool isIndex);
     void searchFailed(const QString &query, const QString &message);
+    // decimals: 가격 소수 자릿수 (종목 0, 지수 2)
+    void chartLoaded(const QString &symbol, const QString &timeframe, const QVector<Candle> &candles, int decimals);
+    void chartFailed(const QString &symbol, const QString &timeframe, const QString &message);
     void allQuotesFinished();
 
 private:

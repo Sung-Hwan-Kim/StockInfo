@@ -179,9 +179,10 @@ StockListWidget::StockListWidget(QWidget *parent)
     // 테두리는 ListFrame이 그린다 (스타일시트는 앱 팔레트/스킨 전환과 충돌하므로 사용하지 않음)
     setFrameShape(QFrame::NoFrame);
 
+    // 더블클릭: 종목 상세 창 (차트, 거래량, MACD 등)
     connect(this, &QTreeWidget::itemDoubleClicked, this, [this](QTreeWidgetItem *item, int) {
         if (item)
-            emit openRequested(item->data(ColName, kCodeRole).toString());
+            emit detailRequested(item->data(ColName, kCodeRole).toString());
     });
 }
 
@@ -381,6 +382,10 @@ void StockListWidget::contextMenuEvent(QContextMenuEvent *e)
         setCurrentItem(item);
         const QString code = item->data(ColName, kCodeRole).toString();
         const QString name = item->text(ColName);
+        QAction *detail = menu.addAction(tr("상세 보기 (차트)"), this, [this, code] { emit detailRequested(code); });
+        QFont bold = detail->font();
+        bold.setBold(true);
+        detail->setFont(bold);
         menu.addAction(tr("네이버 금융에서 보기"), this, [this, code] { emit openRequested(code); });
         menu.addAction(tr("'%1' 삭제").arg(name), this, [this, code] { emit removeRequested(code); });
         menu.addSeparator();

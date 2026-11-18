@@ -39,7 +39,8 @@ public:
     void setPeer(StockListWidget *peer) { m_peer = peer; }
 
 signals:
-    void openRequested(const QString &code);
+    void detailRequested(const QString &code); // 더블클릭 / [상세 보기]
+    void openRequested(const QString &code);   // [네이버 금융에서 보기]
     void removeRequested(const QString &code);
     void manageRequested();
 
