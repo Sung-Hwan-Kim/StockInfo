@@ -1,0 +1,24 @@
+# 빌드 결과물
+build/
+out/
+cmake-build-*/
+
+# Visual Studio / IDE
+.vs/
+*.user
+*.suo
+CMakeSettings.json
+CMakeUserPresets.json
+.vscode/
+.idea/
+
+# Qt Creator
+*.pro.user*
+CMakeLists.txt.user*
+
+# 실행 시 생성되는 설정 파일
+StockInfo.ini
+
+# 기타
+build_log*.txt
+.claude/

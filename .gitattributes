@@ -1,0 +1,8 @@
+* text=auto
+
+# cmd 배치 파일은 반드시 CRLF여야 정상 동작
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.png binary
+*.ico binary
