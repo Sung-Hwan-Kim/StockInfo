@@ -15,6 +15,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QSystemTrayIcon>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -41,7 +42,7 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, StockService *servic
 {
     setWindowTitle(tr("환경설정"));
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
-    resize(640, 520);
+    resize(660, 640);
 
     // ── 일반 ──
     auto *general = new QGroupBox(tr("일반"), this);
@@ -69,6 +70,30 @@ SettingsDialog::SettingsDialog(const AppSettings &settings, StockService *servic
     m_onTop = new QCheckBox(tr("항상 위에 표시"), general);
     m_onTop->setChecked(settings.alwaysOnTop);
     form->addRow(QString(), m_onTop);
+
+    // 트레이
+    m_trayIcon = new QCheckBox(tr("알림 영역(트레이)에 아이콘 표시"), general);
+    m_trayIcon->setChecked(settings.showTrayIcon);
+    m_closeToTray = new QCheckBox(tr("닫기(X) 버튼을 누르면 트레이로 숨기기"), general);
+    m_closeToTray->setChecked(settings.closeToTray);
+    m_minimizeToTray = new QCheckBox(tr("최소화하면 트레이로 숨기기"), general);
+    m_minimizeToTray->setChecked(settings.minimizeToTray);
+    form->addRow(tr("트레이:"), m_trayIcon);
+    form->addRow(QString(), m_closeToTray);
+    form->addRow(QString(), m_minimizeToTray);
+
+    const bool trayAvailable = QSystemTrayIcon::isSystemTrayAvailable();
+    auto updateTrayOptions = [this, trayAvailable] {
+        const bool on = trayAvailable && m_trayIcon->isChecked();
+        m_closeToTray->setEnabled(on);
+        m_minimizeToTray->setEnabled(on);
+    };
+    if (!trayAvailable) {
+        m_trayIcon->setEnabled(false);
+        m_trayIcon->setToolTip(tr("이 환경에서는 알림 영역(트레이)을 사용할 수 없습니다."));
+    }
+    connect(m_trayIcon, &QCheckBox::toggled, this, updateTrayOptions);
+    updateTrayOptions();
 
     // ── 종목 관리 ──
     auto *stockBox = new QGroupBox(tr("보여줄 종목"), this);
@@ -301,6 +326,9 @@ void SettingsDialog::applyTo(AppSettings &settings) const
     settings.listFontSize = m_fontSize->value();
     settings.alwaysOnTop = m_onTop->isChecked();
     settings.skin = m_skin->currentData().toString();
+    settings.showTrayIcon = m_trayIcon->isChecked();
+    settings.closeToTray = m_closeToTray->isChecked();
+    settings.minimizeToTray = m_minimizeToTray->isChecked();
     settings.stocks.clear();
     for (int i = 0; i < m_stocks->count(); ++i) {
         const QListWidgetItem *li = m_stocks->item(i);

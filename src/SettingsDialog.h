@@ -49,6 +49,9 @@ private:
     QSpinBox *m_fontSize;
     QCheckBox *m_onTop;
     QComboBox *m_skin;
+    QCheckBox *m_trayIcon;
+    QCheckBox *m_closeToTray;
+    QCheckBox *m_minimizeToTray;
     QLineEdit *m_searchEdit;
     QPushButton *m_searchBtn;
     QListWidget *m_results;

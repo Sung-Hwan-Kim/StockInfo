@@ -9,6 +9,8 @@
 
 class IndexPanel;
 class SettingsDialog;
+class QMenu;
+class QSystemTrayIcon;
 class StockListWidget;
 class QAction;
 class QLabel;
@@ -21,6 +23,8 @@ public:
 
     // 저장된 위치/크기로 창을 띄운다
     void restoreAndShow();
+    // 트레이에 숨어 있거나 최소화된 창을 다시 띄운다 (트레이 클릭, 중복 실행 시)
+    void showFromTray();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *ev) override;
@@ -32,6 +36,11 @@ protected:
 private:
     void buildUi();
     void buildMenus();
+    void buildTray();
+    bool trayActive() const;
+    void hideToTray();
+    void toggleVisible();
+    void quitApp();
     void applyRuntimeSettings();
     void rebuildLists();
     void refreshNow();
@@ -64,6 +73,16 @@ private:
     QAction *m_darkAction = nullptr;
     QAction *m_lightAction = nullptr;
     QPointer<SettingsDialog> m_settingsDialog;
+
+    QAction *m_refreshAction = nullptr;
+    QAction *m_prefsAction = nullptr;
+    QAction *m_manageAction = nullptr;
+    QAction *m_quitAction = nullptr;
+
+    QSystemTrayIcon *m_tray = nullptr;
+    QMenu *m_trayMenu = nullptr;
+    QAction *m_showHideAction = nullptr;
+    bool m_quitting = false; // true면 닫기 버튼도 트레이로 숨기지 않고 종료
 
     QTimer m_refreshTimer;   // 시세 갱신 주기
     QTimer m_countdownTimer; // 상태 표시줄 카운트다운 (1초)

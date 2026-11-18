@@ -25,6 +25,12 @@ public:
     // 스킨: "Dark"(기본) / "Light"
     QString skin = QStringLiteral("Dark");
 
+    // 트레이
+    bool showTrayIcon = true;     // 알림 영역(트레이)에 아이콘 표시
+    bool closeToTray = true;      // 닫기(X) 버튼 → 트레이로 숨기기
+    bool minimizeToTray = false;  // 최소화 → 트레이로 숨기기
+    bool trayNoticeShown = false; // "트레이에서 실행 중" 안내를 이미 보여줬는지
+
     // 창 위치/크기 (클라이언트 영역 기준), 비어 있으면 기본 위치
     QRect windowRect;
     bool windowMaximized = false;

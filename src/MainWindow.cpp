@@ -17,7 +17,9 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QScreen>
+#include <QSessionManager>
 #include <QStatusBar>
+#include <QSystemTrayIcon>
 #include <QTime>
 #include <QUrl>
 
@@ -45,6 +47,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     buildUi();
     buildMenus();
+    buildTray();
 
     connect(m_service, &StockService::indexesUpdated, this, &MainWindow::onIndexes);
     connect(m_service, &StockService::stocksUpdated, this, &MainWindow::onStocks);
@@ -65,7 +68,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect(qApp, &QCoreApplication::aboutToQuit, this, [this] {
         captureGeometry();
         m_settings.save();
+        if (m_tray)
+            m_tray->hide();
     });
+    // Windows 로그오프/종료 때는 트레이로 숨기지 않고 실제로 종료
+    connect(qApp, &QGuiApplication::commitDataRequest, this, [this](QSessionManager &) {
+        m_quitting = true;
+    }, Qt::DirectConnection);
 
     applyRuntimeSettings();
     updateWindowTitle();
@@ -121,19 +130,33 @@ void MainWindow::buildUi()
 
 void MainWindow::buildMenus()
 {
+    // 메뉴 막대와 트레이 메뉴에서 같이 쓰는 동작
+    m_refreshAction = new QAction(tr("지금 새로고침"), this);
+    m_refreshAction->setShortcut(QKeySequence::Refresh);
+    connect(m_refreshAction, &QAction::triggered, this, &MainWindow::refreshNow);
+
+    m_quitAction = new QAction(tr("종료"), this);
+    m_quitAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Q")));
+    m_quitAction->setMenuRole(QAction::QuitRole);
+    connect(m_quitAction, &QAction::triggered, this, &MainWindow::quitApp);
+
+    m_prefsAction = new QAction(tr("환경설정..."), this);
+    m_prefsAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+,")));
+    m_prefsAction->setMenuRole(QAction::PreferencesRole);
+    connect(m_prefsAction, &QAction::triggered, this, [this] { openSettings(false); });
+
+    m_manageAction = new QAction(tr("종목 추가/관리..."), this);
+    m_manageAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+N")));
+    connect(m_manageAction, &QAction::triggered, this, [this] { openSettings(true); });
+
     QMenu *fileMenu = menuBar()->addMenu(tr("파일(&F)"));
-    QAction *refresh = fileMenu->addAction(tr("지금 새로고침"), this, &MainWindow::refreshNow);
-    refresh->setShortcut(QKeySequence::Refresh);
+    fileMenu->addAction(m_refreshAction);
     fileMenu->addSeparator();
-    QAction *quit = fileMenu->addAction(tr("종료"), this, &QWidget::close);
-    quit->setShortcut(QKeySequence(QStringLiteral("Ctrl+Q")));
+    fileMenu->addAction(m_quitAction);
 
     QMenu *setMenu = menuBar()->addMenu(tr("설정(&S)"));
-    QAction *prefs = setMenu->addAction(tr("환경설정..."), this, [this] { openSettings(false); });
-    prefs->setShortcut(QKeySequence(QStringLiteral("Ctrl+,")));
-    prefs->setMenuRole(QAction::PreferencesRole);
-    QAction *manage = setMenu->addAction(tr("종목 추가/관리..."), this, [this] { openSettings(true); });
-    manage->setShortcut(QKeySequence(QStringLiteral("Ctrl+N")));
+    setMenu->addAction(m_prefsAction);
+    setMenu->addAction(m_manageAction);
     setMenu->addSeparator();
 
     QMenu *skinMenu = setMenu->addMenu(tr("스킨"));
@@ -169,6 +192,86 @@ void MainWindow::buildMenus()
     about->setMenuRole(QAction::AboutRole);
 }
 
+// ── 트레이 아이콘 ──
+
+void MainWindow::buildTray()
+{
+    m_trayMenu = new QMenu(this);
+    m_showHideAction = m_trayMenu->addAction(tr("창 보이기"), this, &MainWindow::toggleVisible);
+    QFont bold = m_showHideAction->font();
+    bold.setBold(true);
+    m_showHideAction->setFont(bold);
+    m_trayMenu->addSeparator();
+    m_trayMenu->addAction(m_refreshAction);
+    m_trayMenu->addAction(m_manageAction);
+    m_trayMenu->addAction(m_prefsAction);
+    QMenu *skinMenu = m_trayMenu->addMenu(tr("스킨"));
+    skinMenu->addAction(m_darkAction);
+    skinMenu->addAction(m_lightAction);
+    m_trayMenu->addAction(m_onTopAction);
+    m_trayMenu->addSeparator();
+    m_trayMenu->addAction(m_quitAction);
+    connect(m_trayMenu, &QMenu::aboutToShow, this, [this] {
+        const bool shown = isVisible() && !isMinimized();
+        m_showHideAction->setText(shown ? tr("창 숨기기") : tr("창 보이기"));
+    });
+
+    m_tray = new QSystemTrayIcon(QApplication::windowIcon(), this);
+    m_tray->setContextMenu(m_trayMenu);
+    m_tray->setToolTip(QStringLiteral("StockInfo"));
+    connect(m_tray, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
+        // 왼쪽 클릭: 창 보이기/숨기기 (오른쪽 클릭은 메뉴)
+        if (reason == QSystemTrayIcon::Trigger)
+            toggleVisible();
+    });
+    connect(m_tray, &QSystemTrayIcon::messageClicked, this, &MainWindow::showFromTray);
+}
+
+bool MainWindow::trayActive() const
+{
+    return m_tray && m_tray->isVisible() && QSystemTrayIcon::isSystemTrayAvailable();
+}
+
+void MainWindow::showFromTray()
+{
+    if (isMinimized())
+        setWindowState(windowState() & ~Qt::WindowMinimized);
+    show();
+    raise();
+    activateWindow();
+}
+
+void MainWindow::hideToTray()
+{
+    m_geometryTimer.stop();
+    captureGeometry();
+    hide();
+
+    // 처음 한 번만 "트레이에서 실행 중" 안내
+    if (!m_settings.trayNoticeShown && m_tray) {
+        m_tray->showMessage(tr("StockInfo가 트레이에서 실행 중입니다"),
+                            tr("시세는 계속 갱신됩니다. 아이콘을 클릭하면 창이 다시 열리고, "
+                               "끝내려면 오른쪽 클릭 → [종료]를 누르세요."),
+                            QApplication::windowIcon(), 6000);
+        m_settings.trayNoticeShown = true;
+    }
+    m_settings.save();
+}
+
+void MainWindow::toggleVisible()
+{
+    if (isVisible() && !isMinimized())
+        hideToTray();
+    else
+        showFromTray();
+}
+
+void MainWindow::quitApp()
+{
+    m_quitting = true;
+    close();
+}
+
 void MainWindow::applyRuntimeSettings()
 {
     Skin::apply(Skin::fromString(m_settings.skin));
@@ -186,6 +289,8 @@ void MainWindow::applyRuntimeSettings()
         m_onTopAction->setChecked(m_settings.alwaysOnTop);
     }
     setAlwaysOnTop(m_settings.alwaysOnTop);
+
+    m_tray->setVisible(m_settings.showTrayIcon && QSystemTrayIcon::isSystemTrayAvailable());
 
     m_refreshTimer.setInterval(m_settings.refreshSeconds * 1000);
     refreshNow();
@@ -323,10 +428,20 @@ void MainWindow::updateWindowTitle()
     };
     setWindowTitle(QStringLiteral("%1 · %2 - %3")
                        .arg(part(tr("코스피"), m_kospiQuote), part(tr("코스닥"), m_kosdaqQuote), tr("주식 정보")));
+
+    // 트레이 아이콘에 마우스를 올리면 지수 표시
+    if (m_tray) {
+        m_tray->setToolTip(QStringLiteral("StockInfo\n%1\n%2")
+                               .arg(part(tr("코스피"), m_kospiQuote), part(tr("코스닥"), m_kosdaqQuote)));
+    }
 }
 
 void MainWindow::openSettings(bool focusSearch)
 {
+    // 트레이 메뉴에서 열 때는 창부터 띄운다 (대화상자는 메인 창 기준으로 표시)
+    if (!isVisible() || isMinimized())
+        showFromTray();
+
     // 이미 열려 있으면 앞으로 가져오기
     if (m_settingsDialog) {
         m_settingsDialog->raise();
@@ -495,14 +610,35 @@ void MainWindow::resizeEvent(QResizeEvent *e)
 void MainWindow::changeEvent(QEvent *e)
 {
     QMainWindow::changeEvent(e);
-    if (e->type() == QEvent::WindowStateChange)
+    if (e->type() == QEvent::WindowStateChange) {
         scheduleGeometrySave();
+        // 최소화 → 트레이로 숨기기 (설정 시)
+        if (isMinimized() && m_settings.minimizeToTray && trayActive()) {
+            QTimer::singleShot(0, this, [this] {
+                if (isMinimized())
+                    hideToTray();
+            });
+        }
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent *e)
 {
+    // 닫기(X) → 트레이로 숨기기 (설정 시). [종료] 메뉴나 로그오프 때는 실제로 종료.
+    if (!m_quitting && m_settings.closeToTray && trayActive()) {
+        e->ignore();
+        hideToTray();
+        return;
+    }
+
     m_geometryTimer.stop();
     captureGeometry();
     m_settings.save();
     QMainWindow::closeEvent(e);
+    if (e->isAccepted()) {
+        if (m_tray)
+            m_tray->hide();
+        // 창이 없어도 트레이로 계속 실행되도록 quitOnLastWindowClosed를 끄므로 직접 종료
+        QTimer::singleShot(0, qApp, &QCoreApplication::quit);
+    }
 }

@@ -64,6 +64,10 @@ void AppSettings::load()
     refreshSeconds = qBound(kMinRefresh, s.value(QStringLiteral("RefreshSeconds"), 5).toInt(), kMaxRefresh);
     listFontSize = qBound(8, s.value(QStringLiteral("ListFontSize"), 11).toInt(), 32);
     alwaysOnTop = s.value(QStringLiteral("AlwaysOnTop"), false).toBool();
+    showTrayIcon = s.value(QStringLiteral("TrayIcon"), true).toBool();
+    closeToTray = s.value(QStringLiteral("CloseToTray"), true).toBool();
+    minimizeToTray = s.value(QStringLiteral("MinimizeToTray"), false).toBool();
+    trayNoticeShown = s.value(QStringLiteral("TrayNoticeShown"), false).toBool();
     skin = s.value(QStringLiteral("Skin"), QStringLiteral("Dark")).toString();
     if (skin.compare(QLatin1String("Light"), Qt::CaseInsensitive) == 0)
         skin = QStringLiteral("Light");
@@ -113,6 +117,10 @@ void AppSettings::save() const
     s.setValue(QStringLiteral("ListFontSize"), listFontSize);
     s.setValue(QStringLiteral("AlwaysOnTop"), alwaysOnTop);
     s.setValue(QStringLiteral("Skin"), skin);
+    s.setValue(QStringLiteral("TrayIcon"), showTrayIcon);
+    s.setValue(QStringLiteral("CloseToTray"), closeToTray);
+    s.setValue(QStringLiteral("MinimizeToTray"), minimizeToTray);
+    s.setValue(QStringLiteral("TrayNoticeShown"), trayNoticeShown);
     s.endGroup();
 
     s.beginGroup(QStringLiteral("Window"));
