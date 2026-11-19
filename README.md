@@ -4,8 +4,8 @@
 
 <h1 align="center">StockInfo — 코스피 · 코스닥 주식 정보</h1>
 
-<p align="center">Qt 6 위젯으로 만든 멀티플랫폼(Windows / macOS / Linux) 주식 시세 뷰어<br>
-<b>버전 1.5.0</b> · <a href="https://github.com/Sung-Hwan-Kim/StockInfo/releases/latest">Windows 실행 파일 다운로드</a> · <a href="#변경-이력">변경 이력</a></p>
+<p align="center">Qt 6로 만든 주식 시세 뷰어 — PC(Windows / macOS / Linux) + <b>안드로이드(폰 · 태블릿)</b><br>
+<b>버전 1.6.0</b> · <a href="https://github.com/Sung-Hwan-Kim/StockInfo/releases/latest">Windows 실행 파일 다운로드</a> · <a href="#변경-이력">변경 이력</a></p>
 
 ## 실행 화면
 
@@ -30,8 +30,52 @@
 
 ## 다운로드
 
-[Releases](https://github.com/Sung-Hwan-Kim/StockInfo/releases/latest)에서 `StockInfo-v<버전>-windows-x64.zip`을 내려받아
-압축을 풀고 `StockInfo.exe`를 실행하면 됩니다. (Windows 10/11 64비트, 설치 필요 없음)
+[Releases](https://github.com/Sung-Hwan-Kim/StockInfo/releases/latest)에서 내려받습니다.
+
+- **Windows**: `StockInfo-v<버전>-windows-x64.zip` — 압축을 풀고 `StockInfo.exe` 실행 (Windows 10/11 64비트, 설치 필요 없음)
+- **안드로이드**: `StockInfo-v<버전>-android.apk` — 폰/태블릿에서 내려받아 설치 (Android 9 이상)
+  - 처음 설치할 때 "출처를 알 수 없는 앱 설치"를 허용해야 합니다. (Play 스토어 앱이 아님)
+
+## 안드로이드 앱 (폰 · 태블릿)
+
+<table>
+  <tr>
+    <th>폰 · 세로</th>
+    <th>폰 · 세로 (상세)</th>
+    <th>태블릿 · 세로 (상세)</th>
+  </tr>
+  <tr>
+    <td><img src="docs/android-phone-home.png" width="230" alt="안드로이드 폰 첫 화면"></td>
+    <td><img src="docs/android-phone-detail.png" width="230" alt="안드로이드 폰 종목 상세"></td>
+    <td><img src="docs/android-tablet-portrait.png" width="300" alt="안드로이드 태블릿 세로 종목 상세"></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/android-phone-landscape.png" width="820" alt="안드로이드 폰 가로 종목 상세"><br>
+  <sub>폰 · 가로 — 왼쪽 시세 요약, 오른쪽 차트</sub>
+</p>
+
+<p align="center">
+  <img src="docs/android-tablet-landscape.png" width="820" alt="안드로이드 태블릿 가로 첫 화면"><br>
+  <sub>태블릿 · 가로 — PC처럼 지수 카드 + 좌우 2단 목록</sub>
+</p>
+
+<sub>※ 스크린샷은 에뮬레이터(Pixel 7, Pixel Tablet)에서 장 시작 전에 찍어 등락이 0으로 보입니다.</sub>
+
+PC 버전과 같은 시세 · 차트 코드를 쓰고, 화면은 터치에 맞게 새로 구성했습니다. **가로 · 세로 모드를 모두 지원**합니다.
+
+| 화면 | 폰 세로 | 폰 가로 | 태블릿 (세로 · 가로) |
+|---|---|---|---|
+| 첫 화면 | 지수 카드 + [코스피 \| 코스닥] 탭 목록 | 왼쪽 지수 카드 + 오른쪽 탭 목록 | 지수 카드 + 좌우 2단 목록 (PC와 같은 배치) |
+| 상세 화면 | 위 시세 요약 + 아래 차트 | 왼쪽 시세 요약 + 오른쪽 큰 차트 | 위 시세 요약 + 아래 큰 차트 |
+
+- 종목 · 지수를 **탭**하면 상세 화면 (시세 요약 + 일/주/월봉 차트, 이동평균, 볼린저밴드, 거래량, MACD · OSC, RSI, 스토캐스틱)
+- 차트: **끌기** 이동, **두 손가락** 확대 / 축소, **탭** 값 보기, **두 번 탭** 처음 보기
+- 종목 목록: **아래로 당겨서 새로고침**, **길게 누르면** 메뉴 (상세 보기 / 네이버 금융 / 삭제)
+- 오른쪽 위 ⟳ 버튼: 즉시 갱신, ⋮ 메뉴: 종목 추가/관리, 다크/라이트 모드, 버전 정보
+- 앱이 백그라운드로 가면 갱신을 멈추고, 다시 열면 바로 갱신합니다 (배터리 절약)
+- 설정과 종목 목록은 앱 전용 설정 파일(INI)에 저장됩니다.
 
 ## 기능
 
@@ -156,6 +200,178 @@ build_vs2019.bat
 - Debug 빌드: `build_vs2019.bat Debug`
 - Qt 경로가 다르면 `build_vs2019.bat`의 `QT_DIR`을 수정하세요.
 
+### 안드로이드 APK (Windows에서 빌드)
+
+안드로이드 앱은 Windows PC에서 빌드합니다. 아래 순서대로 한 번만 준비하면 이후에는 `build_android.bat`만 실행하면 됩니다.
+
+#### 1. 필요한 도구
+
+| 도구 | 버전 | 설치 위치 (기본값) | 용도 |
+|---|---|---|---|
+| Qt for Android | 6.7.0 — `Android ARM64-v8a`, `Android x86_64` | `C:\Qt\Qt6.7.0\6.7.0\android_*` | 안드로이드용 Qt 라이브러리 |
+| Qt (PC용) | 6.7.0 — `MSVC 2019 64-bit` | `C:\Qt\Qt6.7.0\6.7.0\msvc2019_64` | 빌드할 때 쓰는 도구(moc, qmlcachegen …) |
+| JDK | 17 (Microsoft Build of OpenJDK) | `C:\Program Files\Microsoft\jdk-17.*` | Gradle, APK 서명 |
+| Android SDK Command-line Tools | 최신 | `C:\Android\Sdk\cmdline-tools\latest` | `sdkmanager`, `avdmanager` |
+| Android SDK Platform | 34 (Android 14) | `C:\Android\Sdk\platforms\android-34` | 컴파일 대상 |
+| Android SDK Build-Tools | 34.0.0 | `C:\Android\Sdk\build-tools\34.0.0` | `zipalign`, `apksigner` |
+| Android NDK | r26b (`26.1.10909125`) | `C:\Android\Sdk\ndk\26.1.10909125` | C++ 컴파일 (Qt 6.7 권장 버전) |
+| Android SDK Platform-Tools | 최신 | `C:\Android\Sdk\platform-tools` | `adb` (기기 설치·디버깅) |
+| OpenSSL 3 for Android | KDAB android_openssl | `C:\Android\android_openssl\ssl_3\<ABI>` | HTTPS 시세 조회 (Qt에 포함되어 있지 않음) |
+| (선택) Android Emulator + 시스템 이미지 | Android 14 `google_apis` `x86_64` | `C:\Android\Sdk\emulator`, `system-images` | PC에서 폰·태블릿 테스트 |
+| CMake | 3.21 이상 | | |
+| Ninja | Visual Studio 2019에 포함된 것 사용 | `...\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja` | |
+
+필요한 디스크 공간: 약 3GB (에뮬레이터까지 설치하면 약 5GB). 처음 APK를 빌드할 때 Gradle이 약 300MB를 더 내려받습니다.
+
+#### 2. Qt for Android 설치
+
+1. Qt 설치 폴더의 `MaintenanceTool.exe`를 실행합니다. (예: `C:\Qt\Qt6.7.0\MaintenanceTool.exe`)
+2. [구성 요소 추가 또는 제거] → `Qt 6.7.0` 아래에서 다음을 선택합니다.
+   - `MSVC 2019 64-bit` (이미 있으면 그대로)
+   - `Android ARM64-v8a` — 실제 폰·태블릿용
+   - `Android x86_64` — 에뮬레이터용
+3. 설치가 끝나면 `C:\Qt\Qt6.7.0\6.7.0\android_arm64_v8a\bin\qt-cmake.bat`이 있는지 확인합니다.
+
+#### 3. JDK 17 설치
+
+```bat
+winget install Microsoft.OpenJDK.17
+```
+
+winget이 없으면 <https://learn.microsoft.com/java/openjdk/download>에서 **OpenJDK 17 Windows x64 MSI**를 받아 설치합니다.
+(JDK 21 이상은 Qt 6.7의 Gradle 버전과 맞지 않을 수 있으니 17을 쓰세요.)
+
+#### 4-A. Android SDK · NDK · OpenSSL 자동 설치 (권장)
+
+```bat
+powershell -ExecutionPolicy Bypass -File tools\install_android_sdk.ps1
+```
+
+이 스크립트가 하는 일:
+
+1. Google 공식 저장소에서 명령줄 도구를 내려받아 `C:\Android\Sdk\cmdline-tools\latest`에 풉니다.
+   (<https://dl.google.com/android/repository/commandlinetools-win-13114758_latest.zip>)
+2. **Android SDK 라이선스에 동의**합니다. (`sdkmanager --licenses`에 `y`를 입력하는 것과 같습니다. 실행 전에 라이선스 내용을 확인하려면 아래 4-B의 5번처럼 직접 실행하세요.)
+3. `platform-tools`, `platforms;android-34`, `build-tools;34.0.0`, `ndk;26.1.10909125`, `emulator`, `system-images;android-34;google_apis;x86_64`를 설치합니다.
+4. KDAB android_openssl(<https://github.com/KDAB/android_openssl>)에서 OpenSSL 3(`libcrypto_3.so`, `libssl_3.so`)을 ABI별로 내려받아 `C:\Android\android_openssl`에 둡니다.
+5. 설치된 폴더가 실제로 있는지 확인합니다.
+
+옵션:
+
+| 옵션 | 설명 |
+|---|---|
+| `-SdkRoot D:\Android\Sdk` | 다른 폴더에 설치 (경로에 공백 없이). OpenSSL은 그 상위 폴더의 `android_openssl`에 설치 |
+| `-NoEmulator` | 에뮬레이터와 시스템 이미지는 빼고 빌드 도구만 설치 (약 2GB 절약) |
+| `-JavaHome "C:\...\jdk-17..."` | JDK 위치를 직접 지정 |
+
+#### 4-B. 직접 설치하는 방법
+
+자동 설치 대신 직접 설치하려면 둘 중 하나를 고르세요.
+
+**방법 1: Android Studio의 SDK Manager**
+
+1. <https://developer.android.com/studio>에서 Android Studio를 설치합니다.
+2. [More Actions] → [SDK Manager]를 엽니다.
+   - **SDK Platforms** 탭: `Android 14.0 ("UpsideDownCake") / API 34`
+   - **SDK Tools** 탭 (오른쪽 아래 `Show Package Details` 체크):
+     - `Android SDK Build-Tools` → `34.0.0`
+     - `NDK (Side by side)` → `26.1.10909125`
+     - `Android SDK Command-line Tools (latest)`
+     - `Android SDK Platform-Tools`
+     - (선택) `Android Emulator`
+3. SDK 위치(기본 `%LOCALAPPDATA%\Android\Sdk`)를 기억해 두고, 빌드 전에 `ANDROID_SDK_ROOT` 환경 변수로 지정합니다.
+
+**방법 2: 명령줄 도구만 사용**
+
+1. <https://developer.android.com/studio#command-line-tools-only>에서 **Windows용 Command line tools**(`commandlinetools-win-*_latest.zip`)를 받습니다.
+2. `C:\Android\Sdk\cmdline-tools\` 아래에 압축을 풀고, 풀린 `cmdline-tools` 폴더 이름을 **`latest`**로 바꿉니다.
+   최종 경로가 `C:\Android\Sdk\cmdline-tools\latest\bin\sdkmanager.bat`이 되어야 합니다.
+3. 명령 프롬프트(cmd)를 열고 JDK 위치를 지정합니다.
+   ```bat
+   set JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.21.102-hotspot
+   cd /d C:\Android\Sdk\cmdline-tools\latest\bin
+   ```
+4. 라이선스를 읽고 동의합니다. (항목마다 `y` 입력)
+   ```bat
+   sdkmanager --sdk_root=C:\Android\Sdk --licenses
+   ```
+5. 패키지를 설치합니다.
+   ```bat
+   sdkmanager --sdk_root=C:\Android\Sdk "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
+   ```
+   에뮬레이터도 쓰려면:
+   ```bat
+   sdkmanager --sdk_root=C:\Android\Sdk "emulator" "system-images;android-34;google_apis;x86_64"
+   ```
+6. OpenSSL 3을 받습니다. <https://github.com/KDAB/android_openssl>의 `ssl_3/arm64-v8a`, `ssl_3/x86_64` 폴더에서
+   `libcrypto_3.so`, `libssl_3.so`를 받아 같은 구조로 `C:\Android\android_openssl\ssl_3\<ABI>\`에 둡니다.
+   (다른 위치에 두었다면 CMake 옵션 `-DSTOCKINFO_ANDROID_OPENSSL=<폴더>`로 지정)
+
+#### 5. 경로가 다를 때
+
+`build_android.bat`은 아래 기본값을 씁니다. 다르면 실행 전에 환경 변수를 지정하거나 배치 파일 맨 위의 값을 고치세요.
+
+| 항목 | 기본값 | 바꾸는 방법 |
+|---|---|---|
+| Android SDK | `C:\Android\Sdk` | `set ANDROID_SDK_ROOT=D:\Android\Sdk` |
+| JDK | `C:\Program Files\Microsoft\jdk-17*` 자동 검색 | `set JAVA_HOME=...` |
+| Qt | `C:\Qt\Qt6.7.0\6.7.0` | 배치 파일의 `QT_ROOT` |
+| Ninja | Visual Studio 2019에 포함된 ninja | 배치 파일의 `NINJA` |
+
+#### 6. APK 빌드
+
+```bat
+build_android.bat
+```
+
+- 결과물: **`build-android\StockInfo-android.apk`** (서명됨)
+- 폰·태블릿용(arm64-v8a)과 에뮬레이터용(x86_64)이 한 APK에 들어갑니다.
+- **서명**: 기본은 안드로이드 표준 디버그 키(`%USERPROFILE%\.android\debug.keystore`, 없으면 자동 생성)로 서명합니다.
+  직접 만든 배포용 키를 쓰려면 빌드 전에 지정하세요. (같은 앱을 업데이트하려면 항상 같은 키로 서명해야 합니다.)
+  ```bat
+  set STOCKINFO_KEYSTORE=C:\keys\stockinfo.jks
+  set STOCKINFO_KEY_ALIAS=stockinfo
+  set STOCKINFO_KEYSTORE_PASS=비밀번호
+  build_android.bat
+  ```
+
+#### 7. 폰 · 태블릿에 설치
+
+- **APK 파일로 설치**: APK를 폰으로 옮긴 뒤(메신저, USB, 클라우드 등) 파일을 열어 설치합니다.
+  처음에는 "출처를 알 수 없는 앱 설치" 허용이 필요합니다.
+- **USB로 설치**: 폰의 [설정 → 휴대전화 정보 → 빌드 번호]를 7번 눌러 개발자 옵션을 켜고, [개발자 옵션 → USB 디버깅]을 켠 뒤
+  ```bat
+  C:\Android\Sdk\platform-tools\adb install -r build-android\StockInfo-android.apk
+  ```
+
+#### 8. 에뮬레이터로 테스트 (선택)
+
+```bat
+set ANDROID_SDK_ROOT=C:\Android\Sdk
+rem 폰 / 태블릿 가상 기기 만들기 (한 번만)
+C:\Android\Sdk\cmdline-tools\latest\bin\avdmanager create avd -n StockInfo_Phone  -k "system-images;android-34;google_apis;x86_64" -d pixel_7
+C:\Android\Sdk\cmdline-tools\latest\bin\avdmanager create avd -n StockInfo_Tablet -k "system-images;android-34;google_apis;x86_64" -d pixel_tablet
+rem 실행 후 설치
+C:\Android\Sdk\emulator\emulator -avd StockInfo_Phone
+C:\Android\Sdk\platform-tools\adb install -r build-android\StockInfo-android.apk
+```
+
+에뮬레이터 화면에서 회전 버튼을 누르면 가로 · 세로 배치를 확인할 수 있습니다.
+(하드웨어 가속을 쓰려면 Windows의 "Windows 하이퍼바이저 플랫폼" 기능이 켜져 있어야 합니다. `emulator -accel-check`로 확인)
+
+#### 9. 문제 해결
+
+| 증상 | 해결 |
+|---|---|
+| `sdkmanager`가 패키지를 설치하지 않고 "license is not accepted" | `sdkmanager --sdk_root=C:\Android\Sdk --licenses`를 직접 실행해서 모두 `y` |
+| Gradle에서 `Unable to establish loopback connection` | JDK 17이 Windows 임시 폴더에 소켓을 못 만드는 문제. `build_android.bat`이 `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=...`로 자동 처리 |
+| 앱에서 "TLS initialization failed" | OpenSSL 3이 APK에 없음. `C:\Android\android_openssl\ssl_3\<ABI>\libssl_3.so`가 있는지 확인 후 다시 빌드 |
+| `[오류] Android NDK를 찾을 수 없습니다` | NDK 버전 폴더가 `26.1.10909125`인지 확인 |
+| 첫 빌드가 오래 걸림 | Gradle 8.3과 안드로이드 빌드 플러그인을 처음 한 번 내려받기 때문 (인터넷 필요) |
+| `QML import could not be resolved: QtQuick.Controls.Windows` 경고 | 안드로이드에서 쓰지 않는 스타일이라 무시해도 됨 |
+
+모바일 화면은 PC에서도 미리 볼 수 있습니다 (`-DSTOCKINFO_BUILD_MOBILE=ON -DSTOCKINFO_BUILD_DESKTOP=OFF`로 빌드하면 `StockInfoMobile.exe`).
+
 ### macOS / Linux
 
 ```sh
@@ -180,10 +396,12 @@ python tools/make_icon.py
 ## 폴더 구조
 
 ```
-src/            소스 코드 (MainWindow, IndexPanel, StockListWidget, SettingsDialog, Skin,
-                StockDetailDialog, ChartWidget, ChartData(보조지표 계산) …)
+src/            PC 앱 + 공용 코드
+                  공용: StockService(시세), AppSettings(INI), ChartData(보조지표), ChartCanvas(차트 그리기), SkinPalette
+                  PC:   MainWindow, IndexPanel, StockListWidget, StockDetailDialog, ChartWidget, SettingsDialog …
+mobile/         안드로이드 앱 (Qt Quick): AppController, QuoteListModel, ChartItem, qml/*.qml, android/(매니페스트·아이콘)
 resources/      아이콘, Windows 리소스(.rc) 템플릿
-tools/          아이콘 생성 스크립트
+tools/          아이콘 생성(make_icon.py), 안드로이드 빌드 도구 설치(install_android_sdk.ps1)
 docs/           README 스크린샷
 ```
 
@@ -191,6 +409,13 @@ docs/           README 스크린샷
 
 버전은 `CMakeLists.txt`의 `project(StockInfo VERSION x.y.z)` 한 곳에서 관리합니다.
 (버전 정보 창, 상태 표시줄, Windows 실행 파일 속성, macOS 번들에 자동 반영)
+
+### 1.6.0
+- **안드로이드 앱 (폰 · 태블릿)**: 지수 카드, 종목 목록, 종목/지수 상세 + 차트, 종목 검색/추가/삭제/순서, 다크/라이트
+  - 가로 · 세로 모드 모두 지원 (폰 가로는 좌우 배치, 태블릿은 PC처럼 2단)
+  - 차트 터치 조작: 끌기 이동, 두 손가락 확대/축소, 탭 값 보기
+- 차트 그리기 코드를 PC/모바일 공용(`ChartCanvas`)으로 분리
+- 안드로이드 빌드 스크립트 (`build_android.bat`, `tools/install_android_sdk.ps1`)
 
 ### 1.5.0
 - **지수 상세 창**: 코스피 · 코스닥 지수 패널을 더블클릭하면 지수 차트와 시세 요약 (실시간 갱신)

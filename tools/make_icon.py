@@ -106,6 +106,15 @@ def main():
     big.save(OUT / "StockInfo.icns", format="ICNS")
     print("saved to", OUT)
 
+    # Android 런처 아이콘 (mobile/android/res/mipmap-*/ic_launcher.png)
+    android_res = OUT.parent.parent / "mobile" / "android" / "res"
+    for folder, size in (("mipmap-mdpi", 48), ("mipmap-hdpi", 72), ("mipmap-xhdpi", 96),
+                         ("mipmap-xxhdpi", 144), ("mipmap-xxxhdpi", 192)):
+        d = android_res / folder
+        d.mkdir(parents=True, exist_ok=True)
+        at(size).save(d / "ic_launcher.png")
+    print("saved to", android_res)
+
 
 if __name__ == "__main__":
     main()
