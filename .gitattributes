@@ -4,5 +4,10 @@
 *.bat text eol=crlf
 *.cmd text eol=crlf
 
+# 리눅스에서 쓰는 파일은 LF
+*.sh text eol=lf
+*.desktop text eol=lf
+*.yml text eol=lf
+
 *.png binary
 *.ico binary

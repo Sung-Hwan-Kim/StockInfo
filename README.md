@@ -35,6 +35,14 @@
 - **Windows**: `StockInfo-v<버전>-windows-x64.zip` — 압축을 풀고 `StockInfo.exe` 실행 (Windows 10/11 64비트, 설치 필요 없음)
 - **안드로이드**: `StockInfo-v<버전>-android.apk` — 폰/태블릿에서 내려받아 설치 (Android 9 이상)
   - 처음 설치할 때 "출처를 알 수 없는 앱 설치"를 허용해야 합니다. (Play 스토어 앱이 아님)
+- **Linux**: `StockInfo-v<버전>-linux-x86_64.AppImage` — 실행 권한을 주고 실행 (64비트, 설치 필요 없음)
+  - Ubuntu 22.04 · Debian 12 · Fedora 36 이상처럼 glibc 2.35와 OpenSSL 3이 있는 배포판에서 실행됩니다.
+  ```sh
+  chmod +x StockInfo-v*-linux-x86_64.AppImage
+  ./StockInfo-v*-linux-x86_64.AppImage
+  ```
+  - FUSE 오류가 나오면 `sudo apt install libfuse2` (Ubuntu 24.04 이상은 `libfuse2t64`)를 설치하거나, 뒤에 `--appimage-extract-and-run`을 붙여 실행합니다.
+  - 한글이 네모로 보이면 한글 글꼴을 설치합니다: `sudo apt install fonts-noto-cjk`
 
 ## 안드로이드 앱 (폰 · 태블릿)
 
@@ -141,6 +149,7 @@ PC 버전과 같은 시세 · 차트 코드를 쓰고, 화면은 터치에 맞�
 
 실행 파일과 같은 폴더의 `StockInfo.ini`에 저장됩니다.
 그 폴더에 쓸 수 없으면(예: Program Files, macOS 앱 번들) 사용자 설정 폴더에 저장됩니다.
+리눅스 AppImage는 항상 사용자 설정 폴더(`~/.config/StockInfo/StockInfo/StockInfo.ini`)에 저장됩니다.
 정확한 경로는 환경설정 창 아래쪽이나 [도움말 → 버전 정보]에서 볼 수 있습니다.
 
 ```ini
@@ -372,10 +381,35 @@ C:\Android\Sdk\platform-tools\adb install -r build-android\StockInfo-android.apk
 
 모바일 화면은 PC에서도 미리 볼 수 있습니다 (`-DSTOCKINFO_BUILD_MOBILE=ON -DSTOCKINFO_BUILD_DESKTOP=OFF`로 빌드하면 `StockInfoMobile.exe`).
 
-### macOS / Linux
+### Linux
+
+Qt 6.7.0 (`gcc_64`)을 설치한 뒤 빌드합니다. Ubuntu 22.04 기준 필요한 패키지:
 
 ```sh
-cmake -S . -B build -DCMAKE_PREFIX_PATH=<Qt 설치경로>/6.7.0/<macos|gcc_64>
+sudo apt install build-essential cmake ninja-build libgl1-mesa-dev libxkbcommon-dev \
+                 libxkbcommon-x11-0 libxcb-cursor0 fonts-noto-cjk
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$HOME/Qt/6.7.0/gcc_64
+cmake --build build
+./build/StockInfo
+```
+
+`sudo cmake --install build`로 설치하면 프로그램 메뉴 항목(`packaging/linux/stockinfo.desktop`)과 아이콘도 함께 설치됩니다.
+
+#### GitHub Actions로 AppImage 만들기
+
+`.github/workflows/linux.yml`이 Ubuntu 22.04에서 Qt 6.7.0으로 빌드하고 [linuxdeploy](https://github.com/linuxdeploy/linuxdeploy)로 AppImage 한 파일을 만듭니다.
+만든 뒤에는 가상 화면(Xvfb)에서 실제로 실행해 화면을 찍어 확인합니다.
+
+| 언제 | 하는 일 |
+|---|---|
+| 릴리즈를 공개할 때 | 그 태그를 빌드해 릴리즈에 `StockInfo-<태그>-linux-x86_64.AppImage`를 자동으로 올림 |
+| 수동 실행 (Actions → **Linux 빌드** → Run workflow) | 릴리즈 태그(예: `v1.6.0`)를 적으면 그 릴리즈에 올림, 비우면 빌드 결과만 보관 |
+| 소스를 푸시할 때 | 빌드와 실행 확인만 (AppImage와 실행 화면은 실행 기록의 Artifacts에 30일 보관) |
+
+### macOS
+
+```sh
+cmake -S . -B build -DCMAKE_PREFIX_PATH=<Qt 설치경로>/6.7.0/macos
 cmake --build build
 ```
 
@@ -401,7 +435,9 @@ src/            PC 앱 + 공용 코드
                   PC:   MainWindow, IndexPanel, StockListWidget, StockDetailDialog, ChartWidget, SettingsDialog …
 mobile/         안드로이드 앱 (Qt Quick): AppController, QuoteListModel, ChartItem, qml/*.qml, android/(매니페스트·아이콘)
 resources/      아이콘, Windows 리소스(.rc) 템플릿
+packaging/      리눅스 프로그램 메뉴 항목(.desktop)
 tools/          아이콘 생성(make_icon.py), 안드로이드 빌드 도구 설치(install_android_sdk.ps1)
+.github/        GitHub Actions: 리눅스 AppImage 빌드 (workflows/linux.yml)
 docs/           README 스크린샷
 ```
 
@@ -416,6 +452,7 @@ docs/           README 스크린샷
   - 차트 터치 조작: 끌기 이동, 두 손가락 확대/축소, 탭 값 보기
 - 차트 그리기 코드를 PC/모바일 공용(`ChartCanvas`)으로 분리
 - 안드로이드 빌드 스크립트 (`build_android.bat`, `tools/install_android_sdk.ps1`)
+- **리눅스 AppImage**: GitHub Actions에서 빌드해 릴리즈에 올림 (`.github/workflows/linux.yml`)
 
 ### 1.5.0
 - **지수 상세 창**: 코스피 · 코스닥 지수 패널을 더블클릭하면 지수 차트와 시세 요약 (실시간 갱신)

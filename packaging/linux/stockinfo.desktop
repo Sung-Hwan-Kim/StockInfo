@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=StockInfo
+GenericName=Stock Viewer
+GenericName[ko]=주식 시세 뷰어
+Comment=KOSPI, KOSDAQ index and stock quotes at a glance
+Comment[ko]=코스피 · 코스닥 지수와 관심 종목 시세를 한눈에
+Exec=StockInfo
+Icon=stockinfo
+Terminal=false
+Categories=Office;Finance;
+Keywords=stock;kospi;kosdaq;주식;코스피;코스닥;

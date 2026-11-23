@@ -48,6 +48,10 @@ int main(int argc, char *argv[])
     QApplication::setApplicationName(QStringLiteral("StockInfo"));
     QApplication::setOrganizationName(QStringLiteral("StockInfo"));
     QApplication::setApplicationVersion(QStringLiteral(STOCKINFO_VERSION));
+#if defined(Q_OS_LINUX)
+    // Wayland/GNOME 등이 작업 표시줄 아이콘을 stockinfo.desktop과 짝지을 수 있게
+    QGuiApplication::setDesktopFileName(QStringLiteral("stockinfo"));
+#endif
     // 창을 트레이로 숨겨도 계속 실행 (종료는 [종료] 메뉴에서)
     QApplication::setQuitOnLastWindowClosed(false);
 

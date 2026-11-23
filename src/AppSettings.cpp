@@ -40,10 +40,12 @@ QString AppSettings::iniPath()
     const QString fileName = QStringLiteral("StockInfo.ini");
 
     // 1순위: 실행 파일과 같은 폴더 (휴대용). macOS 번들 내부는 제외.
+    // 리눅스 AppImage는 실행할 때마다 임시 폴더에 풀려서 실행되므로 제외 (설정이 사라짐)
 #ifndef Q_OS_MACOS
+    const bool inAppImage = qEnvironmentVariableIsSet("APPIMAGE");
     const QString exeDir = QCoreApplication::applicationDirPath();
     const QString exeIni = QDir(exeDir).filePath(fileName);
-    if (QFileInfo::exists(exeIni) || isDirWritable(exeDir)) {
+    if (!inAppImage && (QFileInfo::exists(exeIni) || isDirWritable(exeDir))) {
         cached = exeIni;
         return cached;
     }

@@ -1,0 +1,185 @@
+# 리눅스(x86_64) AppImage 빌드
+#  - 릴리즈를 공개하면: 그 태그를 빌드해 릴리즈에 AppImage를 올린다
+#  - 수동 실행 (Actions → Linux 빌드 → Run workflow): 릴리즈 태그를 적으면 그 릴리즈에 올리고, 비우면 빌드 결과만 보관
+#  - 코드를 푸시하면: 빌드와 실행 확인만 한다 (결과는 Actions 실행 화면의 Artifacts에 보관)
+name: Linux 빌드
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "AppImage를 올릴 릴리즈 태그 (예: v1.6.0). 비우면 릴리즈에 올리지 않음"
+        required: false
+        default: ""
+  push:
+    branches: ["**"]
+    paths:
+      - "src/**"
+      - "resources/**"
+      - "packaging/linux/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/linux.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  appimage:
+    name: AppImage (x86_64)
+    # 오래된 배포판에서도 실행되도록 glibc 2.35 (Ubuntu 22.04) 기준으로 빌드
+    runs-on: ubuntu-22.04
+    env:
+      QT_VERSION: "6.7.0"
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 빌드에 필요한 패키지 설치
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build file \
+            libgl1-mesa-dev libegl1 libfontconfig1 libfreetype6 libdbus-1-3 \
+            libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            libxcb-xkb1 libxcb-sync1 libxcb-xfixes0 libxcb-shm0 libxcb-util1 \
+            xvfb xdotool imagemagick fonts-noto-cjk
+
+      - name: Qt ${{ env.QT_VERSION }} 설치
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          cache: true
+
+      - name: 버전과 파일 이름
+        id: meta
+        run: |
+          version=$(sed -n 's/^project(StockInfo VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          if [ -n "$RELEASE_TAG" ]; then
+            if ! [[ "$RELEASE_TAG" =~ ^v[0-9][0-9A-Za-z.-]*$ ]]; then
+              echo "::error::릴리즈 태그 형식이 아닙니다: $RELEASE_TAG"
+              exit 1
+            fi
+            label="$RELEASE_TAG"
+          else
+            label="v$version"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "file=StockInfo-$label-linux-x86_64.AppImage" >> "$GITHUB_OUTPUT"
+
+      - name: 빌드
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" \
+            -DCMAKE_INSTALL_PREFIX=/usr
+          cmake --build build
+          DESTDIR="$PWD/AppDir" cmake --install build
+
+      - name: AppImage 만들기
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          OUTPUT: ${{ steps.meta.outputs.file }}
+          LDAI_OUTPUT: ${{ steps.meta.outputs.file }}
+          LINUXDEPLOY_OUTPUT_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          base=https://github.com/linuxdeploy
+          wget -q "$base/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage"
+          wget -q "$base/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-x86_64.AppImage"
+          chmod +x linuxdeploy-*.AppImage
+          export QMAKE="$QT_ROOT_DIR/bin/qmake"
+          export LD_LIBRARY_PATH="$QT_ROOT_DIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+          # 1) Qt 라이브러리와 플러그인 모으기
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt
+          find AppDir/usr/plugins -name '*.so' | sort
+
+          # 시세 조회(HTTPS)에 필요한 TLS 플러그인 확인 (OpenSSL 3은 배포판의 것을 사용)
+          if [ ! -e AppDir/usr/plugins/tls/libqopensslbackend.so ]; then
+            echo "::error::TLS 플러그인(libqopensslbackend.so)이 들어가지 않았습니다"
+            exit 1
+          fi
+
+          # 2) AppImage 한 파일로 묶기
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
+          ls -la "$OUTPUT"
+
+      - name: 실행해 보기 (가상 화면)
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          TZ: Asia/Seoul
+          FILE: ${{ steps.meta.outputs.file }}
+        run: |
+          mkdir -p shots
+          Xvfb :99 -screen 0 1600x1000x24 >/dev/null 2>&1 &
+          export DISPLAY=:99
+          sleep 2
+          ./"$FILE" > shots/app.log 2>&1 &
+          pid=$!
+          sleep 20
+          if ! kill -0 "$pid" 2>/dev/null; then
+            cat shots/app.log
+            echo "::error::프로그램이 실행 직후 종료되었습니다"
+            exit 1
+          fi
+          import -window root shots/linux-main.png
+
+          # 첫 종목(삼성전자)을 더블클릭해 상세 창(차트) 열기
+          xdotool mousemove 500 360 click --repeat 2 --delay 100 1
+          sleep 8
+          import -window root shots/linux-detail.png
+          xdotool key Escape
+          sleep 1
+
+          # Ctrl+Q로 정상 종료 → 설정 파일이 저장되는지 확인
+          xdotool mousemove 800 600 click 1
+          xdotool key ctrl+q
+          for i in $(seq 1 10); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "::warning::Ctrl+Q로 종료되지 않아 강제로 끝냅니다"
+            kill "$pid" 2>/dev/null || true
+            pkill -f appimage_extracted || true
+          fi
+          cat shots/app.log
+
+          ini="$HOME/.config/StockInfo/StockInfo/StockInfo.ini"
+          if [ -f "$ini" ]; then
+            echo "설정 파일: $ini"
+            cp "$ini" shots/
+          else
+            echo "::warning::설정 파일이 저장되지 않았습니다"
+            find "$HOME/.config" -iname '*stockinfo*' || true
+          fi
+
+      - name: 빌드 결과 보관
+        uses: actions/upload-artifact@v7
+        with:
+          name: StockInfo-linux-x86_64
+          path: |
+            ${{ steps.meta.outputs.file }}
+            shots/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 릴리즈에 올리기
+        if: env.RELEASE_TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FILE: ${{ steps.meta.outputs.file }}
+        run: gh release upload "$RELEASE_TAG" "$FILE" --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: 요약
+        env:
+          FILE: ${{ steps.meta.outputs.file }}
+        run: |
+          {
+            echo "### $FILE"
+            echo '```'
+            sha256sum "$FILE"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

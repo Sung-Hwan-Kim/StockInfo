@@ -137,6 +137,17 @@ if(STOCKINFO_BUILD_DESKTOP)
     install(TARGETS StockInfo
         BUNDLE DESTINATION .
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+    if(UNIX AND NOT APPLE)
+        # 리눅스: 프로그램 메뉴 항목(.desktop)과 아이콘 (AppImage도 이 파일들로 만든다)
+        install(FILES packaging/linux/stockinfo.desktop
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+        foreach(_size 16 24 32 48 64 128 256 512)
+            install(FILES resources/icons/icon_${_size}.png
+                DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_size}x${_size}/apps
+                RENAME stockinfo.png)
+        endforeach()
+    endif()
 endif()
 
 # ── 모바일 앱 ──
