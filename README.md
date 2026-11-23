@@ -43,6 +43,13 @@
   ```
   - FUSE 오류가 나오면 `sudo apt install libfuse2` (Ubuntu 24.04 이상은 `libfuse2t64`)를 설치하거나, 뒤에 `--appimage-extract-and-run`을 붙여 실행합니다.
   - 한글이 네모로 보이면 한글 글꼴을 설치합니다: `sudo apt install fonts-noto-cjk`
+- **macOS**: `StockInfo-v<버전>-macos.dmg` — 열어서 `StockInfo`를 `Applications`(응용 프로그램) 폴더로 끌어다 놓기 (macOS 12 이상, Apple Silicon · Intel 모두 지원)
+  - Apple 개발자 인증서로 서명하지 않은 앱이라 처음 실행할 때 "확인할 수 없다"는 경고가 나옵니다.
+    **시스템 설정 → 개인정보 보호 및 보안**의 맨 아래에서 **[그래도 열기]**를 누르세요. (macOS 14 이하는 Finder에서 앱을 Control-클릭 → [열기]로도 됩니다)
+  - "손상되었기 때문에 열 수 없습니다"가 나오면 터미널에서 다음을 한 번 실행합니다.
+  ```sh
+  xattr -dr com.apple.quarantine /Applications/StockInfo.app
+  ```
 
 ## 안드로이드 앱 (폰 · 태블릿)
 
@@ -150,6 +157,7 @@ PC 버전과 같은 시세 · 차트 코드를 쓰고, 화면은 터치에 맞�
 실행 파일과 같은 폴더의 `StockInfo.ini`에 저장됩니다.
 그 폴더에 쓸 수 없으면(예: Program Files, macOS 앱 번들) 사용자 설정 폴더에 저장됩니다.
 리눅스 AppImage는 항상 사용자 설정 폴더(`~/.config/StockInfo/StockInfo/StockInfo.ini`)에 저장됩니다.
+macOS는 `~/Library/Preferences/StockInfo/StockInfo/StockInfo.ini`에 저장됩니다.
 정확한 경로는 환경설정 창 아래쪽이나 [도움말 → 버전 정보]에서 볼 수 있습니다.
 
 ```ini
@@ -408,10 +416,27 @@ cmake --build build
 
 ### macOS
 
+Xcode(또는 Command Line Tools)와 Qt 6.7.0 (`macos`)을 설치한 뒤 빌드합니다. Apple Silicon과 Intel 모두에서 실행되는 유니버설 앱을 만듭니다.
+
 ```sh
-cmake -S . -B build -DCMAKE_PREFIX_PATH=<Qt 설치경로>/6.7.0/macos
-cmake --build build
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$HOME/Qt/6.7.0/macos \
+      -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+cmake --build build --parallel
+open build/StockInfo.app
 ```
+
+배포용으로 Qt를 앱 안에 넣으려면 `~/Qt/6.7.0/macos/bin/macdeployqt build/StockInfo.app` 후 `codesign --force --deep --sign - build/StockInfo.app`(임시 서명)를 실행합니다.
+최소 macOS 버전은 `CMakeLists.txt`의 `CMAKE_OSX_DEPLOYMENT_TARGET`(12.0)에서 정합니다.
+
+macOS에서는 메뉴가 화면 맨 위 메뉴 막대로 가므로 [실시간 갱신] 버튼은 창 위쪽 막대의 오른쪽 끝에 있고,
+[환경설정](⌘,) · [버전 정보] · [종료](⌘Q)는 `StockInfo` 앱 메뉴로 옮겨집니다. 단축키의 Ctrl은 ⌘(Command)입니다.
+
+#### GitHub Actions로 DMG 만들기
+
+`.github/workflows/macos.yml`이 GitHub의 macOS 가상 머신에서 빌드합니다 (Mac이 따로 없어도 됩니다).
+유니버설로 빌드하고 `macdeployqt`로 Qt를 넣은 뒤 임시 서명을 하고, 끌어다 놓아 설치하는 DMG를 만듭니다.
+DMG에서 꺼낸 앱을 실제로 실행해 화면을 찍고, 종료할 때 설정이 저장되는지까지 확인합니다.
+실행되는 때는 리눅스와 같습니다 (수동 실행은 Actions → **macOS 빌드** → Run workflow).
 
 ## 아이콘
 
@@ -434,10 +459,10 @@ src/            PC 앱 + 공용 코드
                   공용: StockService(시세), AppSettings(INI), ChartData(보조지표), ChartCanvas(차트 그리기), SkinPalette
                   PC:   MainWindow, IndexPanel, StockListWidget, StockDetailDialog, ChartWidget, SettingsDialog …
 mobile/         안드로이드 앱 (Qt Quick): AppController, QuoteListModel, ChartItem, qml/*.qml, android/(매니페스트·아이콘)
-resources/      아이콘, Windows 리소스(.rc) 템플릿
+resources/      아이콘, Windows 리소스(.rc) 템플릿, macOS Info.plist 템플릿
 packaging/      리눅스 프로그램 메뉴 항목(.desktop)
 tools/          아이콘 생성(make_icon.py), 안드로이드 빌드 도구 설치(install_android_sdk.ps1)
-.github/        GitHub Actions: 리눅스 AppImage 빌드 (workflows/linux.yml)
+.github/        GitHub Actions: 리눅스 AppImage(workflows/linux.yml), macOS DMG(workflows/macos.yml) 빌드
 docs/           README 스크린샷
 ```
 
@@ -453,6 +478,10 @@ docs/           README 스크린샷
 - 차트 그리기 코드를 PC/모바일 공용(`ChartCanvas`)으로 분리
 - 안드로이드 빌드 스크립트 (`build_android.bat`, `tools/install_android_sdk.ps1`)
 - **리눅스 AppImage**: GitHub Actions에서 빌드해 릴리즈에 올림 (`.github/workflows/linux.yml`)
+- **macOS DMG** (Apple Silicon + Intel): GitHub Actions에서 빌드해 릴리즈에 올림 (`.github/workflows/macos.yml`)
+  - [실시간 갱신] 버튼을 창 위쪽 막대에 표시, 제목 표시줄과 메뉴도 다크/라이트 스킨을 따름
+  - Dock 아이콘을 누르면 트레이로 숨긴 창이 다시 열림, Dock의 [종료]로도 종료됨
+- Qt 기본 문구(예/아니요, 복사/붙여넣기 등)도 한국어로 표시
 
 ### 1.5.0
 - **지수 상세 창**: 코스피 · 코스닥 지수 패널을 더블클릭하면 지수 차트와 시세 요약 (실시간 갱신)

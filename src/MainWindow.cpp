@@ -23,6 +23,8 @@
 #include <QStatusBar>
 #include <QSystemTrayIcon>
 #include <QTime>
+#include <QTimer>
+#include <QToolBar>
 #include <QUrl>
 
 namespace {
@@ -77,6 +79,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(qApp, &QGuiApplication::commitDataRequest, this, [this](QSessionManager &) {
         m_quitting = true;
     }, Qt::DirectConnection);
+    // 운영체제가 보낸 종료 요청(macOS Dock의 [종료], 로그아웃 등)도 실제로 종료
+    qApp->installEventFilter(this);
 
     applyRuntimeSettings();
     updateWindowTitle();
@@ -195,9 +199,25 @@ void MainWindow::buildMenus()
     });
 
     // 메뉴 막대 오른쪽 끝: [⟳ 실시간 갱신] 버튼 (누를 때마다 즉시 갱신)
+#ifdef Q_OS_MACOS
+    // macOS는 메뉴가 화면 맨 위 시스템 메뉴 막대로 가서 구석에 버튼을 둘 수 없다
+    // → 창 위쪽 얇은 막대의 오른쪽 끝에 둔다
+    QToolBar *refreshBar = addToolBar(tr("실시간 갱신"));
+    refreshBar->setObjectName(QStringLiteral("RefreshBar"));
+    refreshBar->setMovable(false);
+    refreshBar->setFloatable(false);
+    refreshBar->toggleViewAction()->setVisible(false);
+    auto *spacer = new QWidget(refreshBar);
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    refreshBar->addWidget(spacer);
+    m_refreshButton = new RefreshButton(refreshBar);
+    m_refreshButton->setDefaultAction(m_refreshAction);
+    refreshBar->addWidget(m_refreshButton);
+#else
     m_refreshButton = new RefreshButton(menuBar());
     m_refreshButton->setDefaultAction(m_refreshAction);
     menuBar()->setCornerWidget(m_refreshButton, Qt::TopRightCorner);
+#endif
 
     QMenu *helpMenu = menuBar()->addMenu(tr("도움말(&H)"));
     helpMenu->addAction(tr("홈페이지 (GitHub)"), this, [] {
@@ -578,6 +598,16 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
     if (obj == m_versionLabel && ev->type() == QEvent::MouseButtonRelease) {
         showAbout();
         return true;
+    }
+    if (obj == qApp) {
+        // 운영체제의 종료 요청 → 트레이로 숨기지 않고 실제로 종료
+        if (ev->type() == QEvent::Quit)
+            m_quitting = true;
+#ifdef Q_OS_MACOS
+        // Dock 아이콘을 누르면 트레이로 숨긴 창을 다시 띄운다
+        if (ev->type() == QEvent::ApplicationActivate && !isVisible())
+            QTimer::singleShot(0, this, &MainWindow::showFromTray);
+#endif
     }
     return QMainWindow::eventFilter(obj, ev);
 }

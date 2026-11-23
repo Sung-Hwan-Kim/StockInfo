@@ -13,6 +13,10 @@
 
 namespace Skin {
 
+#ifdef Q_OS_MACOS
+void applyMacAppearance(bool dark); // SkinMac.mm
+#endif
+
 namespace {
 
 Mode g_mode = Mode::Dark;
@@ -90,6 +94,11 @@ void apply(Mode m)
         if (w->isVisible())
             applyFrame(w, true);
     }
+
+#ifdef Q_OS_MACOS
+    // macOS: 제목 표시줄과 시스템 메뉴도 스킨에 맞춘다
+    applyMacAppearance(m == Mode::Dark);
+#endif
 }
 
 Mode current()

@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
 
+# macOS: 실행할 수 있는 가장 낮은 버전 (Qt 6.7 기준 macOS 12). project()보다 먼저 정해야 한다.
+set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "최소 macOS 버전")
+
 project(StockInfo VERSION 1.6.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -96,6 +99,17 @@ if(STOCKINFO_BUILD_DESKTOP)
             resources/icons/icon_256.png
     )
 
+    # Qt 기본 문구(예/아니요, 복사/붙여넣기, macOS 앱 메뉴의 종료·가리기 등)를 한국어로
+    set(_qt_tr_dir "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_TRANSLATIONS}")
+    if(EXISTS "${_qt_tr_dir}/qtbase_ko.qm")
+        qt_add_resources(StockInfo "qt_translations"
+            PREFIX "/i18n"
+            BASE "${_qt_tr_dir}"
+            FILES "${_qt_tr_dir}/qtbase_ko.qm")
+    else()
+        message(WARNING "Qt 한국어 번역(qtbase_ko.qm)이 없어 Qt 기본 문구는 영어로 표시됩니다: ${_qt_tr_dir}")
+    endif()
+
     if(WIN32)
         # 실행 파일(.exe) 아이콘 + 버전 정보
         set(STOCKINFO_ICO "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/StockInfo.ico")
@@ -110,7 +124,14 @@ if(STOCKINFO_BUILD_DESKTOP)
         set(STOCKINFO_ICNS "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/StockInfo.icns")
         set_source_files_properties("${STOCKINFO_ICNS}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
         target_sources(StockInfo PRIVATE "${STOCKINFO_ICNS}")
-        set_target_properties(StockInfo PROPERTIES MACOSX_BUNDLE_ICON_FILE "StockInfo.icns")
+        set_target_properties(StockInfo PROPERTIES
+            MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/resources/macos/Info.plist.in"
+            MACOSX_BUNDLE_ICON_FILE "StockInfo.icns"
+            MACOSX_BUNDLE_BUNDLE_NAME "StockInfo")
+        # 제목 표시줄/메뉴 다크·라이트 전환 (NSApp.appearance)
+        enable_language(OBJCXX)
+        target_sources(StockInfo PRIVATE src/SkinMac.mm)
+        target_link_libraries(StockInfo PRIVATE "-framework AppKit")
     endif()
 
     if(MSVC)

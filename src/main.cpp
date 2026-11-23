@@ -9,6 +9,7 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QStyleFactory>
+#include <QTranslator>
 
 #ifdef Q_OS_WIN
 #include <qt_windows.h>
@@ -54,6 +55,11 @@ int main(int argc, char *argv[])
 #endif
     // 창을 트레이로 숨겨도 계속 실행 (종료는 [종료] 메뉴에서)
     QApplication::setQuitOnLastWindowClosed(false);
+
+    // Qt 기본 문구(예/아니요, 복사/붙여넣기, macOS 앱 메뉴 등)를 한국어로
+    auto *qtKorean = new QTranslator(&app);
+    if (qtKorean->load(QStringLiteral(":/i18n/qtbase_ko.qm")))
+        QApplication::installTranslator(qtKorean);
 
     // 중복 실행 방지: 이미 실행 중이면 기존 창을 띄우고 끝낸다
     const QString key = instanceKey();
