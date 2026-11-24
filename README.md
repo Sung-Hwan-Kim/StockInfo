@@ -43,13 +43,19 @@
   ```
   - FUSE 오류가 나오면 `sudo apt install libfuse2` (Ubuntu 24.04 이상은 `libfuse2t64`)를 설치하거나, 뒤에 `--appimage-extract-and-run`을 붙여 실행합니다.
   - 한글이 네모로 보이면 한글 글꼴을 설치합니다: `sudo apt install fonts-noto-cjk`
-- **macOS**: `StockInfo-v<버전>-macos.dmg` — 열어서 `StockInfo`를 `Applications`(응용 프로그램) 폴더로 끌어다 놓기 (macOS 12 이상, Apple Silicon · Intel 모두 지원)
-  - Apple 개발자 인증서로 서명하지 않은 앱이라 처음 실행할 때 "확인할 수 없다"는 경고가 나옵니다.
-    **시스템 설정 → 개인정보 보호 및 보안**의 맨 아래에서 **[그래도 열기]**를 누르세요. (macOS 14 이하는 Finder에서 앱을 Control-클릭 → [열기]로도 됩니다)
-  - "손상되었기 때문에 열 수 없습니다"가 나오면 터미널에서 다음을 한 번 실행합니다.
-  ```sh
-  xattr -dr com.apple.quarantine /Applications/StockInfo.app
-  ```
+- **macOS**: `StockInfo-v<버전>-macos.dmg` — macOS 12 이상, Apple Silicon · Intel 모두 지원
+  - Apple 개발자 인증서로 서명 · 공증하지 않은 앱이라, 그냥 열면 **"'StockInfo'을(를) 열지 않음"** 경고가 나오고 실행되지 않습니다.
+    처음 한 번만 아래처럼 터미널에서 허용하면 다음부터는 그냥 열립니다.
+  1. DMG를 열고 `StockInfo`를 `Applications`(응용 프로그램) 폴더로 끌어다 놓습니다. (DMG 안에서 바로 실행하지 마세요)
+  2. **⌘(Command) + 스페이스** → `터미널` 입력 → Enter로 터미널을 엽니다.
+  3. 아래 한 줄을 붙여넣고 Enter를 누르면 앱이 열립니다.
+     ```sh
+     xattr -dr com.apple.quarantine /Applications/StockInfo.app && open /Applications/StockInfo.app
+     ```
+     인터넷에서 받은 파일에 붙는 "격리" 표시만 지우는 명령이며, 앱 파일은 바꾸지 않습니다.
+     `No such file or directory`가 나오면 아직 1번(Applications로 복사)이 안 된 것입니다.
+  - 터미널 대신: 경고가 나온 **직후** **시스템 설정 → 개인정보 보호 및 보안**의 아래쪽 '보안' 항목에 StockInfo가 차단되었다는 줄과 **[그래도 열기]** 버튼이 잠시 나타납니다.
+    macOS 버전에 따라 문구가 다르고, DMG 안에서 실행했거나 시간이 지나면 나타나지 않을 수 있습니다.
 
 ## 안드로이드 앱 (폰 · 태블릿)
 
